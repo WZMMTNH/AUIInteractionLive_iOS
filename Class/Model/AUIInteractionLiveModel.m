@@ -1,0 +1,180 @@
+//
+//  AUIInteractionLiveModel.m
+//  AliInteractionLiveDemo
+//
+//  Created by Bingo on 2022/8/31.
+//
+
+#import "AUIInteractionLiveModel.h"
+
+@implementation AUIInteractionLiveModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [self init];
+    if (self) {
+        
+    }
+    return self;
+}
+
+@end
+
+@implementation AUIInteractionLivePushModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        _rtmp_url = [data objectForKey:@"rtmp_url"];
+        _rts_url = [data objectForKey:@"rts_url"];
+        _srt_url = [data objectForKey:@"srt_url"];
+    }
+    return self;
+}
+
+@end
+
+@implementation AUIInteractionLivePullModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        _flv_url = [data objectForKey:@"flv_url"];
+        _hls_url = [data objectForKey:@"hls_url"];
+        _rtmp_url = [data objectForKey:@"rtmp_url"];
+        _rts_url = [data objectForKey:@"rts_url"];
+    }
+    return self;
+}
+
+@end
+
+@implementation AUIInteractionLiveLinkMicPullInfo
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        _userId = [data objectForKey:@"userId"];
+        _userNick = [data objectForKey:@"userNick"];
+        _rtcPullUrl = [data objectForKey:@"rtcPullUrl"];
+    }
+    return self;
+}
+
+- (instancetype)init:(NSString *)userId userNick:(NSString *)userNick rtcPullUrl:(NSString *)rtcPullUrl {
+    self = [super init];
+    if (self) {
+        _userId = userId;
+        _userNick = userNick;
+        _rtcPullUrl = rtcPullUrl;
+    }
+    return self;
+}
+
+- (NSDictionary *)toDictionary {
+    return @{
+        @"userId":_userId ?: @"",
+        @"userNick":_userNick ?: @"",
+        @"rtcPullUrl":_rtcPullUrl ?: @"",
+    };
+}
+
+@end
+
+@implementation AUIInteractionLiveLinkMicModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        NSDictionary *dict = [data objectForKey:@"cdn_pull_info"];
+        if ([dict isKindOfClass:NSDictionary.class]) {
+            _cdn_pull_info = [[AUIInteractionLivePullModel alloc] initWithResponseData:dict];
+        }
+        _rtc_pull_url = [data objectForKey:@"rtc_pull_url"];
+        _rtc_push_url = [data objectForKey:@"rtc_push_url"];
+    }
+    return self;
+}
+
+- (void)parseExtends:(NSDictionary *)extends {
+    NSMutableArray *list = [NSMutableArray array];
+    NSArray *listDict = [extends objectForKey:@"linkMicInfo"];
+    if ([listDict isKindOfClass:NSArray.class]) {
+        [listDict enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            NSDictionary *dict = obj;
+            if ([dict isKindOfClass:NSDictionary.class]) {
+                AUIInteractionLiveLinkMicPullInfo *info = [[AUIInteractionLiveLinkMicPullInfo alloc] initWithResponseData:dict];
+                [list addObject:info];
+            }
+        }];
+    }
+    _linkMicList = [list copy];
+}
+
+@end
+
+@implementation AUIInteractionLiveMetricsModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        _like_count = [[data objectForKey:@"like_count"] integerValue];
+        _online_count = [[data objectForKey:@"online_count"] integerValue];
+        _total_count = [[data objectForKey:@"total_count"] integerValue];
+        _pv = [[data objectForKey:@"pv"] integerValue];
+        _uv = [[data objectForKey:@"uv"] integerValue];
+    }
+    return self;
+}
+
+@end
+
+
+
+@implementation AUIInteractionLiveInfoModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        _live_id = [data objectForKey:@"id"];
+        _mode = [[data objectForKey:@"mode"] integerValue];
+        _anchor_id = [data objectForKey:@"anchor_id"];
+        _chat_id = [data objectForKey:@"chat_id"];
+        _created_at = [data objectForKey:@"created_at"];
+        _update_at = [data objectForKey:@"update_at"];
+        _title = [data objectForKey:@"title"];
+        _pk_id = [data objectForKey:@"pk_id"];
+        _status = [[data objectForKey:@"status"] integerValue];
+        
+        NSString *extendJson = [data objectForKey:@"extends"];
+        _extends = [NSJSONSerialization JSONObjectWithData:[extendJson dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:nil];
+
+        NSDictionary *metrics_dict = [data objectForKey:@"metrics"];
+        if ([metrics_dict isKindOfClass:NSDictionary.class]) {
+            _metrics = [[AUIInteractionLiveMetricsModel alloc] initWithResponseData:metrics_dict];
+        }
+        
+        NSDictionary *pull_dict = [data objectForKey:@"pull_url_info"];
+        if ([pull_dict isKindOfClass:NSDictionary.class]) {
+            _pull_url_info = [[AUIInteractionLivePullModel alloc] initWithResponseData:pull_dict];
+        }
+        
+        NSDictionary *push_dict = [data objectForKey:@"push_url_info"];
+        if ([push_dict isKindOfClass:NSDictionary.class]) {
+            _push_url_info = [[AUIInteractionLivePushModel alloc] initWithResponseData:push_dict];
+        }
+        
+        NSDictionary *link_dict = [data objectForKey:@"link_info"];
+        if ([link_dict isKindOfClass:NSDictionary.class]) {
+            _link_info = [[AUIInteractionLiveLinkMicModel alloc] initWithResponseData:link_dict];
+            [_link_info parseExtends:_extends];
+        }
+    }
+    return self;
+}
+
+- (void)updateStatus:(AUIInteractionLiveStatus)status {
+    _status = status;
+}
+
+@end
+
