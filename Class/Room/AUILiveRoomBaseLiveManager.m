@@ -29,7 +29,7 @@
     self = [super init];
     if (self) {
         self.roomManager = roomManager;
-        self.displayView = displayView;
+        self.displayLayoutView = displayView;
     }
     return self;
 }
@@ -52,8 +52,8 @@
 }
 
 - (void)prepareLivePusher {
-    [self.displayView addDisplayView:self.livePusher.displayView];
-    [self.displayView layoutAll];
+    [self.displayLayoutView addDisplayView:self.livePusher.displayView];
+    [self.displayLayoutView layoutAll];
     [self.livePusher prepare];
 }
 
@@ -62,12 +62,29 @@
     self.isLiving = YES;
 }
 
+- (void)stopLivePusher {
+    [self.livePusher stop];
+    self.isLiving = NO;
+}
+
 - (void)destoryLivePusher {
-    [self.displayView removeDisplayView:self.livePusher.displayView];
-    [self.displayView layoutAll];
+    [self.displayLayoutView removeDisplayView:self.livePusher.displayView];
+    [self.displayLayoutView layoutAll];
     [self.livePusher destory];
     self.livePusher = nil;
     self.isLiving = NO;
+}
+
+- (BOOL)openLivePusherMic:(BOOL)open {
+    [self.livePusher mute:!open];
+    BOOL ret = !self.livePusher.isMute;
+    return ret;
+}
+
+- (BOOL)openLivePusherCamera:(BOOL)open {
+    [self.livePusher pause:!open];
+    BOOL ret = !self.livePusher.isPause;
+    return ret;
 }
 
 @end
@@ -78,17 +95,11 @@
 
 @synthesize roomVC;
 
-@synthesize onLoadingEndBlock;
-@synthesize onLoadingStartBlock;
-@synthesize onPlayErrorBlock;
-@synthesize onPrepareDoneBlock;
-@synthesize onPrepareStartBlock;
-
 - (instancetype)initWithRoomManager:(AUILiveRoomManager *)roomManager displayView:(nonnull AUILiveRoomLiveDisplayLayoutView *)displayView {
     self = [super init];
     if (self) {
         self.roomManager = roomManager;
-        self.displayView = displayView;
+        self.displayLayoutView = displayView;
     }
     return self;
 }
@@ -96,18 +107,12 @@
 - (void)setupPullPlayer {
     self.cdnPull = [[AUILiveRoomCdnPull alloc] init];
     self.cdnPull.liveInfoModel = self.roomManager.liveInfoModel;
-    self.cdnPull.onPrepareStartBlock = self.onPrepareStartBlock;
-    self.cdnPull.onPrepareDoneBlock = self.onPrepareDoneBlock;
-    self.cdnPull.onLoadingStartBlock = self.onLoadingStartBlock;
-    self.cdnPull.onLoadingEndBlock = self.onLoadingEndBlock;
-    self.cdnPull.onPlayErrorBlock = self.onPlayErrorBlock;
-    
     self.isLiving = NO;
 }
 
 - (void)preparePullPlayer {
-    [self.displayView addDisplayView:self.cdnPull.displayView];
-    [self.displayView layoutAll];
+    [self.displayLayoutView addDisplayView:self.cdnPull.displayView];
+    [self.displayLayoutView layoutAll];
     [self.cdnPull prepare];
 }
 
@@ -117,12 +122,13 @@
 }
 
 - (void)destoryPullPlayer {
-    [self.displayView removeDisplayView:self.cdnPull.displayView];
-    [self.displayView layoutAll];
+    [self.displayLayoutView removeDisplayView:self.cdnPull.displayView];
+    [self.displayLayoutView layoutAll];
     [self.cdnPull destory];
     self.cdnPull = nil;
     
     self.isLiving = NO;
+    [self.cdnPull.displayView endLoading];
 }
 
 @end

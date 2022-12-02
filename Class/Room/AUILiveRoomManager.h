@@ -15,8 +15,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface AUILiveRoomManager : NSObject<AVCIInteractionServiceDelegate>
 
 @property (strong, nonatomic, readonly) AUIInteractionLiveInfoModel *liveInfoModel;
+@property (strong, nonatomic, readonly) NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *joinList;
 
-- (instancetype)initWithModel:(AUIInteractionLiveInfoModel *)model withInteractionEngine:(AVCIInteractionEngine *)interactionEngine;
+- (instancetype)initWithModel:(AUIInteractionLiveInfoModel *)model
+                 withJoinList:(nullable NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList
+        withInteractionEngine:(AVCIInteractionEngine *)interactionEngine;
 
 @property (assign, nonatomic, readonly) BOOL isAnchor;
 @property (assign, nonatomic, readonly) BOOL isJoined;
@@ -38,10 +41,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property (assign, nonatomic, readonly) BOOL isMuteByAuchor;
 - (void)queryMuteByAnchor:(nullable void (^)(BOOL))completed;
 
+@property (copy, nonatomic, readonly) NSString *notice;
+- (void)updateNotice:(NSString *)notice completed:(nullable void(^)(BOOL))completed;
 
 @property (assign, nonatomic, readonly) NSInteger allLikeCount;
 - (void)sendLike;
 
+- (void)sendCameraOpened:(BOOL)opened completed:(nullable void(^)(BOOL))completed;
+- (void)sendMicOpened:(BOOL)opened completed:(nullable void(^)(BOOL))completed;
+- (void)sendOpenCamera:(NSString *)userId needOpen:(BOOL)needOpen completed:(nullable void(^)(BOOL))completed;
+- (void)sendOpenMic:(NSString *)userId needOpen:(BOOL)needOpen completed:(nullable void(^)(BOOL))completed;
 
 - (void)sendComment:(NSString *)comment completed:(nullable void(^)(BOOL))completed;
 
@@ -49,15 +58,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 // 申请/响应连麦
 - (void)sendApplyLinkMic:(NSString *)uid completed:(nullable void(^)(BOOL))completed;
+- (void)sendCancelApplyLinkMic:(NSString *)uid completed:(nullable void(^)(BOOL))completed;
 - (void)sendResponseLinkMic:(NSString *)uid agree:(BOOL)agree pullUrl:(NSString *)pullUrl completed:(nullable void(^)(BOOL))completed;
 
 // 广播自己要干什么：上麦/下麦/踢人下麦
 - (void)sendJoinLinkMic:(NSString *)pullUrl completed:(nullable void(^)(BOOL))completed;
 - (void)sendLeaveLinkMic:(BOOL)byKickout completed:(nullable void(^)(BOOL))completed;
 - (void)sendKickoutLinkMic:(NSString *)uid completed:(nullable void(^)(BOOL))completed;
+
 // 查询/更新连麦列表
-- (void)queryLinkMicList:(nullable void(^)(NSArray<AUIInteractionLiveLinkMicPullInfo *> * _Nullable))completed;
-- (void)updateLinkMicList:(nullable NSArray<AUIInteractionLiveLinkMicPullInfo *> *)linkMicList completed:(nullable void(^)(BOOL))completed;
+- (void)queryLinkMicJoinList:(nullable void(^)(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> * _Nullable))completed;
+- (void)updateLinkMicJoinList:(nullable NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList completed:(nullable void(^)(BOOL))completed;
 
 @property (nonatomic, copy) void (^onReceivedCustomMessage)(AUIInteractionLiveMessage *message);
 @property (nonatomic, copy) void (^onReceivedComment)(AUIInteractionLiveUser *sender, NSString *content);
@@ -68,11 +79,17 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy) void (^onReceivedJoinGroup)(AUIInteractionLiveUser *sender, NSDictionary *stat);
 @property (nonatomic, copy) void (^onReceivedLeaveGroup)(AUIInteractionLiveUser *sender, NSDictionary *stat);
 @property (nonatomic, copy) void (^onReceivedMuteAll)(AUIInteractionLiveUser *sender, BOOL isMuteAll);
+@property (nonatomic, copy) void (^onReceivedNoticeUpdate)(AUIInteractionLiveUser *sender, NSString *notice);
 
+@property (nonatomic, copy) void (^onReceivedCameraOpened)(AUIInteractionLiveUser *sender, BOOL opened);
+@property (nonatomic, copy) void (^onReceivedMicOpened)(AUIInteractionLiveUser *sender, BOOL opened);
+@property (nonatomic, copy) void (^onReceivedOpenCamera)(AUIInteractionLiveUser *sender,  BOOL needOpen);
+@property (nonatomic, copy) void (^onReceivedOpenMic)(AUIInteractionLiveUser *sender, BOOL needOpen);
 
 @property (nonatomic, copy) void (^onReceivedApplyLinkMic)(AUIInteractionLiveUser *sender);
+@property (nonatomic, copy) void (^onReceivedCancelApplyLinkMic)(AUIInteractionLiveUser *sender);
 @property (nonatomic, copy) void (^onReceivedResponseApplyLinkMic)(AUIInteractionLiveUser *sender, BOOL agree, NSString *pullUrl);
-@property (nonatomic, copy) void (^onReceivedJoinLinkMic)(AUIInteractionLiveUser *sender, AUIInteractionLiveLinkMicPullInfo *linkMicUserInfo);
+@property (nonatomic, copy) void (^onReceivedJoinLinkMic)(AUIInteractionLiveUser *sender, AUIInteractionLiveLinkMicJoinInfoModel *joinInfo);
 @property (nonatomic, copy) void (^onReceivedLeaveLinkMic)(AUIInteractionLiveUser *sender, NSString *userId);
 
 @end

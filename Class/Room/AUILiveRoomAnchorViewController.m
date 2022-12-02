@@ -12,17 +12,16 @@
 
 #import "AUILiveRoomInfoView.h"
 #import "AUILiveRoomPushStatusView.h"
-#import "AUILiveBlockButton.h"
-#import "AUILiveDetailButton.h"
 #import "AUILiveRoomMemberButton.h"
 #import "AUILiveRoomAnchorBottomView.h"
 #import "AUILiveRoomMorePanel.h"
 #import "AUILiveRoomCommentView.h"
-#import "AUILiveRoomLoadingIndicatorView.h"
 #import "AUILiveRoomAnchorPrestartView.h"
 #import "AUILiveRoomFinishView.h"
 #import "AUILiveRoomLiveDisplayLayoutView.h"
 #import "AUILiveRoomLivingContainerView.h"
+#import "AUILiveRoomNoticeButton.h"
+#import "AUILIveRoomNoticePanel.h"
 
 #import "AUIInteractionAccountManager.h"
 #import "AUILiveRoomBaseLiveManager.h"
@@ -31,23 +30,20 @@
 
 
 @interface AUILiveRoomAnchorViewController () <
-AVUIViewControllerInteractivePodGesture,
-AUILiveRoomAnchorPrestartViewDelegate,
-AUILiveRoomAnchorBottomViewDelegate
+AVUIViewControllerInteractivePodGesture
 >
 
-@property (strong, nonatomic) AUILiveBlockButton* exitButton;
+@property (strong, nonatomic) AVBlockButton* exitButton;
 
 @property (strong, nonatomic) AUILiveRoomLiveDisplayLayoutView *liveDisplayView;
 
 @property (strong, nonatomic) AUILiveRoomLivingContainerView *livingContainerView;
 @property (strong, nonatomic) AUILiveRoomInfoView *liveInfoView;
-@property (strong, nonatomic) AUILiveDetailButton *noticeButton;
+@property (strong, nonatomic) AUILiveRoomNoticeButton *noticeButton;
 @property (strong, nonatomic) AUILiveRoomMemberButton *membersButton;
 @property (strong, nonatomic) AUILiveRoomPushStatusView *pushStatusView;
 @property (strong, nonatomic) AUILiveRoomCommentView *liveCommentView;
 @property (strong, nonatomic) AUILiveRoomAnchorBottomView *bottomView;
-@property (strong, nonatomic) AUILiveRoomLoadingIndicatorView *pushLoadingIndicator;
 
 @property (strong, nonatomic) AUILiveRoomAnchorPrestartView *livePrestartView;
 @property (strong, nonatomic) AUILiveRoomFinishView *liveFinishView;
@@ -56,7 +52,6 @@ AUILiveRoomAnchorBottomViewDelegate
 @property (strong, nonatomic) AUILiveRoomManager *roomManager;
 @property (strong, nonatomic) id<AUILiveRoomLiveManagerAnchorProtocol> liveManager;
 
-@property (strong, nonatomic) AUILiveBlockButton* linkMicButton;
 @property (strong, nonatomic) AUILiveRoomLinkMicListPanel* linkMicPanel;
 
 @end
@@ -67,27 +62,22 @@ AUILiveRoomAnchorBottomViewDelegate
 
 #pragma mark -- UI控件懒加载
 
-- (AUILiveBlockButton *)exitButton {
+- (AVBlockButton *)exitButton {
     if (!_exitButton) {
-        AUILiveBlockButton* button = [[AUILiveBlockButton alloc] init];
+        AVBlockButton* button = [[AVBlockButton alloc] initWithFrame:CGRectMake(self.view.av_right - 16 - 24, AVSafeTop + 10, 24, 24)];
+        button.layer.cornerRadius = 12;
+        button.layer.masksToBounds = YES;
+        [button setImage:AUIInteractionLiveGetCommonImage(@"ic_living_close") forState:UIControlStateNormal];
+        [button setBackgroundColor:[UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4] forState:UIControlStateNormal];
         [self.view addSubview:button];
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            if (@available(iOS 11.0, *)) {
-                make.top.equalTo(self.view.mas_safeAreaLayoutGuideTop).with.offset(10);
-                make.right.equalTo(self.view.mas_safeAreaLayoutGuideRight).with.offset(-10);
-            } else {
-                make.top.equalTo(self.view).with.offset(10);
-                make.right.equalTo(self.view.mas_right).with.offset(-10);
-            }
-            make.height.mas_equalTo(30);
-            make.width.mas_equalTo(30);
-        }];
-        [button setBackgroundImage:AUIInteractionLiveGetImage(@"icon-exit") forState:UIControlStateNormal];
-        [button setAdjustsImageWhenHighlighted:NO];
         
         __weak typeof(self) weakSelf = self;
-        button.clickBlock = ^(AUILiveBlockButton * _Nonnull sender) {
-            [AVAlertController showWithTitle:@"提示" message:@"还有观众正在路上，确定要结束直播吗？" needCancel:YES onCompleted:^(BOOL isCanced) {
+        button.clickBlock = ^(AVBlockButton * _Nonnull sender) {
+            NSString *tips = @"还有观众正在路上，确定要结束直播吗？";
+            if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+                tips = @"确定要离开吗？";
+            }
+            [AVAlertController showWithTitle:tips message:@"" needCancel:YES onCompleted:^(BOOL isCanced) {
                 if (!isCanced) {
                     [weakSelf.liveManager destoryLivePusher];
                     [weakSelf.roomManager finishLive:nil];
@@ -104,202 +94,161 @@ AUILiveRoomAnchorBottomViewDelegate
 - (AUILiveRoomLiveDisplayLayoutView *)liveDisplayView {
     if (!_liveDisplayView) {
         _liveDisplayView = [[AUILiveRoomLiveDisplayLayoutView alloc] initWithFrame:self.view.bounds];
-        _liveDisplayView.contentAreaInsets = UIEdgeInsetsMake(AVSafeTop+56+20, 0, AVSafeBottom+64+30, 0);
         _liveDisplayView.resolution = CGSizeMake(720, 1280);
         [self.view addSubview:_liveDisplayView];
-        [_liveDisplayView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.edges.equalTo(self.view);
-        }];
     }
     return _liveDisplayView;
 }
 
 - (AUILiveRoomLivingContainerView *)livingContainerView {
     if (!_livingContainerView) {
-        _livingContainerView = [[AUILiveRoomLivingContainerView alloc] init];
+        _livingContainerView = [[AUILiveRoomLivingContainerView alloc] initWithFrame:self.view.bounds];
         [self.view addSubview:_livingContainerView];
-        [_livingContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(self.view);
-        }];
     }
     return _livingContainerView;
 }
 
-- (AUILiveRoomPushStatusView *)pushStatusView {
-    if (!_pushStatusView) {
-        _pushStatusView = [[AUILiveRoomPushStatusView alloc] init];
-        _pushStatusView.hidden = YES;
-//        [self.livingContainerView addSubview:_pushStatusView];
-//        [_pushStatusView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-//            make.width.mas_equalTo(75);
-//            make.height.mas_equalTo(30);
-//            if (@available(iOS 11.0, *)) {
-//                make.right.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideRight);
-//            } else {
-//                make.right.equalTo(self.livingContainerView.mas_right);
-//            }
-//            make.top.equalTo(self.livingContainerView.mas_top).with.offset(85);
-//        }];
+- (AUILiveRoomMemberButton *)membersButton {
+    if (!_membersButton) {
+        _membersButton = [[AUILiveRoomMemberButton alloc] initWithFrame:CGRectMake(self.livingContainerView.av_right - 48 - 55, AVSafeTop + 10, 55, 24)];
+        _membersButton.layer.cornerRadius = 12;
+        _membersButton.layer.masksToBounds = YES;
+        [_membersButton updateMemberCount:self.roomManager.pv];
+        [self.livingContainerView addSubview:_membersButton];
     }
-    return _pushStatusView;
+    return _membersButton;
 }
 
 - (AUILiveRoomInfoView *)liveInfoView {
     if(!_liveInfoView) {
-        AUILiveRoomInfoView* view = [[AUILiveRoomInfoView alloc] init];
+        AUILiveRoomInfoView* view = [[AUILiveRoomInfoView alloc] initWithFrame:CGRectMake(16, AVSafeTop + 2, 150, 40) withModel:self.roomManager.liveInfoModel];
         [self.livingContainerView addSubview:view];
-        [view mas_makeConstraints:^(MASConstraintMaker *make) {
-            if (@available(iOS 11.0, *)) {
-                make.top.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideTop).with.offset(8);
-                make.left.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideLeft).with.offset(10);
-            } else {
-                make.top.equalTo(self.livingContainerView).with.offset(8);
-                make.left.equalTo(self.livingContainerView).with.offset(10);
-            }
-            make.width.mas_equalTo(173);
-            make.height.mas_equalTo(43);
-        }];
-        view.backgroundColor = [UIColor colorWithRed:0 green:0 blue:0 alpha:0.3];
+        view.layer.cornerRadius = 20;
         view.layer.masksToBounds = YES;
-        view.layer.cornerRadius = 21.5;
-        view.anchorNickLabel.text = @"昵称";
-        view.anchorAvatarView.image = AUIInteractionLiveGetImage(@"img-user-default");
-        [view updateLikeCount:0];
-        [view updatePV:0];
         _liveInfoView = view;
     }
     return _liveInfoView;
 }
 
-- (AUILiveDetailButton *)noticeButton {
+
+- (AUILiveRoomNoticeButton *)noticeButton {
     if (!_noticeButton) {
-        AUILiveDetailButton* button = [[AUILiveDetailButton alloc] initWithFrame:CGRectMake(0, 0, 64.8, 19.6) image:AUIInteractionLiveGetImage(@"直播-公告") title:@"公告"];
-//        [self.livingContainerView addSubview:button];
-//        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-//            if (@available(iOS 11.0, *)) {
-//                make.top.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideTop).with.offset(56);
-//            } else {
-//                make.top.equalTo(self.livingContainerView).with.offset(56);
-//            }
-//            make.left.equalTo(self.membersButton.mas_right).with.offset(10);
-//            make.width.mas_equalTo(64.8);
-//            make.height.mas_equalTo(19.6);
-//        }];
-//        __weak typeof(self) weakSelf = self;
-//        button.clickBlock = ^(AUILiveBlockButton * _Nonnull sender) {
-//
-//        };
+        AUILiveRoomNoticeButton* button = [[AUILiveRoomNoticeButton alloc] initWithFrame:CGRectMake(16, AVSafeTop + 52, 0, 0)];
+        button.enableEdit = YES;
+        [self.livingContainerView addSubview:button];
+        button.noticeContent = self.roomManager.notice;
+        
+        __weak typeof(self) weakSelf = self;
+        button.onEditNoticeContentBlock = ^{
+            
+            AUILIveRoomNoticePanel *panel = [[AUILIveRoomNoticePanel alloc] initWithFrame:CGRectMake(0, weakSelf.livingContainerView.av_height - AUILIveRoomNoticePanel.panelHeight, weakSelf.livingContainerView.av_width, AUILIveRoomNoticePanel.panelHeight)];
+            panel.input = weakSelf.roomManager.notice;
+            panel.onInputCompletedBlock = ^(AUILIveRoomNoticePanel *sender, NSString * _Nonnull input) {
+                if ([input isEqualToString:weakSelf.roomManager.notice]) {
+                    return;
+                }
+                AVProgressHUD *loading = [AVProgressHUD ShowHUDAddedTo:weakSelf.view animated:YES];
+                [weakSelf.roomManager updateNotice:input?:@"" completed:^(BOOL success) {
+                    if (success) {
+                        loading.labelText = @"公告已更新";
+                        loading.iconType = AVProgressHUDIconTypeSuccess;
+                        [loading hideAnimated:YES afterDelay:1];
+                        weakSelf.noticeButton.noticeContent = weakSelf.roomManager.notice;
+                        [sender hide];
+                    }
+                    else {
+                        loading.labelText = @"公告更新失败";
+                        loading.iconType = AVProgressHUDIconTypeWarn;
+                        [loading hideAnimated:YES afterDelay:3];
+                    }
+                }];
+            };
+            [panel showOnView:weakSelf.livingContainerView withBackgroundType:AVControllPanelBackgroundTypeModal];
+            panel.bgViewOnShowing.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.4];
+        };
         
         _noticeButton = button;
     }
     return _noticeButton;
 }
 
-- (AUILiveRoomMemberButton *)membersButton{
-    if (!_membersButton) {
-        _membersButton = [[AUILiveRoomMemberButton alloc] init];
-        _membersButton.backgroundColor = [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:0.2];
-        _membersButton.layer.cornerRadius = 12.3;
-//        [self.livingContainerView addSubview:_membersButton];
-//        [_membersButton mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-//
-//            if (@available(iOS 11.0, *)) {
-//                make.top.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideTop).with.offset(56);
-//                make.left.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideLeft).with.offset(18);
-//            } else {
-//                make.top.equalTo(self.livingContainerView).with.offset(56);
-//                make.left.equalTo(self.livingContainerView.mas_left).with.offset(18);
-//            }
-//            make.width.mas_equalTo(64.8);
-//            make.height.mas_equalTo(19.6);
-//        }];
-//
-//        __weak typeof(self) weakSelf = self;
-//        _membersButton.onMemberButtonClicked = ^{
-//
-//        };
+- (AUILiveRoomPushStatusView *)pushStatusView {
+    if (!_pushStatusView) {
+        _pushStatusView = [[AUILiveRoomPushStatusView alloc] initWithFrame:CGRectMake(self.livingContainerView.av_width - 16 - 48, AVSafeTop + 55, 48, 16)];
+        [self.livingContainerView addSubview:_pushStatusView];
     }
-    return _membersButton;
+    return _pushStatusView;
 }
 
 - (AUILiveRoomCommentView *)liveCommentView {
     if(!_liveCommentView){
-        _liveCommentView = [[AUILiveRoomCommentView alloc] init];
+        _liveCommentView = [[AUILiveRoomCommentView alloc] initWithFrame:CGRectMake(16, self.livingContainerView.av_height - AVSafeBottom - 44 - 214 - 8, 240, 214)];
         [self.livingContainerView addSubview:_liveCommentView];
-        [_liveCommentView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            if (@available(iOS 11.0, *)) {
-                make.bottom.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideBottom).with.offset(-59);
-                make.left.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideLeft).with.offset(10);
-            } else {
-                make.bottom.equalTo(self.livingContainerView).with.offset(-59);
-                make.left.equalTo(self.livingContainerView.mas_left).with.offset(10);
-            }
-            make.right.equalTo(self.view.mas_right).with.offset(-1 * kLiveCommentPortraitRightGap - 20);
-            make.height.mas_equalTo(kLiveCommentPortraitHeight);
-        }];
     }
     return _liveCommentView;
 }
 
 - (AUILiveRoomAnchorBottomView *)bottomView {
     if (!_bottomView) {
-        _bottomView = [[AUILiveRoomAnchorBottomView alloc] init];
-        _bottomView.actionsDelegate = self;
+        _bottomView = [[AUILiveRoomAnchorBottomView alloc] initWithFrame:CGRectMake(0, self.livingContainerView.av_height - AVSafeBottom - 50, self.livingContainerView.av_width, AVSafeBottom + 50) linkMic:self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic];
         [self.livingContainerView addSubview:_bottomView];
-        [_bottomView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            if (@available(iOS 11.0, *)) {
-                make.bottom.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideBottom);
-                make.left.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideLeft);
-                make.right.equalTo(self.livingContainerView.mas_safeAreaLayoutGuideRight);
-            } else {
-                make.bottom.equalTo(self.livingContainerView);
-                make.left.equalTo(self.livingContainerView);
-                make.right.equalTo(self.livingContainerView);
-            }
-            make.height.mas_equalTo(59);
-        }];
+        
+        __weak typeof(self) weakSelf = self;
+        _bottomView.onMoreButtonClickedBlock = ^(AUILiveRoomAnchorBottomView * _Nonnull sender) {
+            [weakSelf openMorePanel];
+        };
+        _bottomView.onBeautyButtonClickedBlock = ^(AUILiveRoomAnchorBottomView * _Nonnull sender) {
+            [weakSelf.liveManager.livePusher.beautyController showPanel:YES];
+        };
+        _bottomView.onLinkMicButtonClickedBlock = ^(AUILiveRoomAnchorBottomView * _Nonnull sender) {
+            [weakSelf openLinkMicPanel:YES needJump:YES onApplyTab:NO];
+        };
+        _bottomView.sendCommentBlock = ^(AUILiveRoomAnchorBottomView * _Nonnull sender, NSString * _Nonnull comment) {
+            [weakSelf.roomManager sendComment:comment completed:nil];
+        };
     }
     return _bottomView;
 }
 
-- (AUILiveRoomLoadingIndicatorView*)pushLoadingIndicator {
-    if (!_pushLoadingIndicator) {
-        _pushLoadingIndicator = [[AUILiveRoomLoadingIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-        _pushLoadingIndicator.hidden = YES;
-        _pushLoadingIndicator.tintColor = [UIColor whiteColor];
-        _pushLoadingIndicator.color = [UIColor whiteColor];
-        [self.livingContainerView addSubview:_pushLoadingIndicator];
-        [_pushLoadingIndicator mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.size.mas_equalTo(CGSizeMake(38.4, 38.4));
-            make.centerX.equalTo(self.livingContainerView.mas_centerX);
-            make.centerY.equalTo(self.livingContainerView.mas_centerY);
-        }];
-    }
-    return  _pushLoadingIndicator;
-}
-
 - (AUILiveRoomAnchorPrestartView *)livePrestartView {
     if (!_livePrestartView) {
-        _livePrestartView = [[AUILiveRoomAnchorPrestartView alloc] init];
+        _livePrestartView = [[AUILiveRoomAnchorPrestartView alloc] initWithFrame:self.view.bounds withModel:self.roomManager.liveInfoModel];
         _livePrestartView.hidden = YES;
-        _livePrestartView.delegate = self;
-        [self.view addSubview:_livePrestartView];
         [self.view insertSubview:_livePrestartView aboveSubview:self.livingContainerView];
-        [_livePrestartView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.edges.equalTo(self.view);
-        }];
+        
+        __weak typeof(self) weakSelf = self;
+        _livePrestartView.onBeautyBlock = ^(AUILiveRoomAnchorPrestartView * _Nonnull sender) {
+            [weakSelf.liveManager.livePusher.beautyController showPanel:YES];
+        };
+        _livePrestartView.onSwitchCameraBlock = ^(AUILiveRoomAnchorPrestartView * _Nonnull sender) {
+            [weakSelf.liveManager.livePusher switchCamera];
+        };
+        _livePrestartView.onWillStartLiveBlock = ^BOOL(AUILiveRoomAnchorPrestartView * _Nonnull sender) {
+            weakSelf.exitButton.hidden = YES;
+            return YES;
+        };
+        _livePrestartView.onStartLiveBlock = ^(AUILiveRoomAnchorPrestartView * _Nonnull sender) {
+            weakSelf.exitButton.hidden = NO;
+            [weakSelf startLive];
+        };
     }
     return _livePrestartView;
 }
 
 - (AUILiveRoomFinishView *)liveFinishView {
     if (!_liveFinishView) {
-        _liveFinishView = [[AUILiveRoomFinishView alloc] init];
+        _liveFinishView = [[AUILiveRoomFinishView alloc] initWithFrame:self.livingContainerView.bounds];
         _liveFinishView.hidden = YES;
-        [self.view insertSubview:_liveFinishView belowSubview:self.livingContainerView];
-        [_liveFinishView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.edges.equalTo(self.view);
-        }];
+        _liveFinishView.hiddenReplayerButtons = YES;
+        [self.livingContainerView insertSubview:_liveFinishView atIndex:0];
+        
+        __weak typeof(self) weakSelf = self;
+        _liveFinishView.onFullScreenBlock = ^(AUILiveRoomFinishView * _Nonnull sender, BOOL fullScreen) {
+            weakSelf.liveInfoView.hidden = fullScreen;
+            weakSelf.membersButton.hidden = fullScreen;
+            weakSelf.noticeButton.hidden = fullScreen;
+            weakSelf.exitButton.hidden = fullScreen;
+        };
     }
     return _liveFinishView;
 }
@@ -310,20 +259,155 @@ AUILiveRoomAnchorBottomViewDelegate
     return YES;
 }
 
-#pragma mark - AUILiveRoomAnchorBottomViewDelegate
+#pragma mark - LifeCycle
 
-- (void)onShareButtonClicked {
+- (void)dealloc {
+    NSLog(@"dealloc:AUILiveRoomAnchorViewController");
+}
+
+- (instancetype)initWithManger:(AUILiveRoomManager *)manager {
+    self = [super init];
+    if (self) {
+        _roomManager = manager;
+        
+        __weak typeof(self) weakSelf = self;
+        _roomManager.onReceivedComment = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull content) {
+            if (content.length > 0) {
+                NSString *senderNick = sender.nickName;
+                NSString *senderId = sender.userId;
+                [weakSelf.liveCommentView insertLiveComment:content commentSenderNick:senderNick commentSenderID:senderId presentedCompulsorily:NO];
+            }
+        };
+        _roomManager.onReceivedMuteAll = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL isMuteAll) {
+            weakSelf.bottomView.commentTextField.commentState = isMuteAll ?  AUILiveRoomCommentStateMute : AUILiveRoomCommentStateDefault;
+        };
+        _roomManager.onReceivedLike = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger likeCount) {
+        };
+        _roomManager.onReceivedPV = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger pv) {
+            [weakSelf.membersButton updateMemberCount:pv];
+        };
+        _roomManager.onReceivedApplyLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender) {
+            [weakSelf receiveApply:sender];
+        };
+        _roomManager.onReceivedCancelApplyLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender) {
+            [weakSelf receiveCancelApply:sender];
+        };
+        _roomManager.onReceivedJoinLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, AUIInteractionLiveLinkMicJoinInfoModel * _Nonnull joinInfo) {
+            [weakSelf receivedJoinLinkMic:joinInfo];
+        };
+        _roomManager.onReceivedLeaveLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull userId) {
+            [weakSelf receivedLeaveLinkMic:userId];
+        };
+        _roomManager.onReceivedMicOpened = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL opened) {
+            [weakSelf receivedMicOpened:sender opened:opened];
+        };
+        _roomManager.onReceivedCameraOpened = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL opened) {
+            [weakSelf receivedCameraOpened:sender opened:opened];
+        };
+    }
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
     
+    [self setupUI];
+        
+    if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
+        [self showPrestartUI];
+    }
+    else if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+        [self showFinishUI];
+        self.liveFinishView.vodModel = self.roomManager.liveInfoModel.vod_info;
+        self.noticeButton.enableEdit = NO;
+    }
+    else {
+        [self showLivingUI];
+    }
+    
+    [self setupLiveManager];
+    
+    __weak typeof(self) weakSelf = self;
+    [self.roomManager enterRoom:^(BOOL success) {
+        if (!success) {
+            [AVAlertController showWithTitle:nil message:@"进入直播间失败，请稍后重试~" needCancel:NO onCompleted:^(BOOL isCanced) {
+                [weakSelf.navigationController popViewControllerAnimated:YES];
+            }];
+        }
+        else {
+            [weakSelf.roomManager queryMuteAll:^(BOOL success) {
+                weakSelf.bottomView.commentTextField.commentState = weakSelf.roomManager.isMuteAll ? AUILiveRoomCommentStateMute : AUILiveRoomCommentStateDefault;
+            }];
+            
+            [weakSelf.membersButton updateMemberCount:weakSelf.roomManager.pv];
+            if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
+                [weakSelf.liveManager prepareLivePusher];
+            }
+            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusLiving) {
+                [weakSelf.liveManager prepareLivePusher];
+                [weakSelf.liveManager startLivePusher];
+            }
+            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+            }
+            else {
+                // 状态出错
+            }
+        }
+    }];
 }
 
-- (void)onBeautyButtonClicked {
-    [self.liveManager.livePusher.beautyController showPanel:YES];
+- (void)setupUI {
+    self.view.backgroundColor = AUIFoundationColor(@"bg_weak");
+    CAGradientLayer *bgLayer = [CAGradientLayer layer];
+    bgLayer.frame = self.view.bounds;
+    bgLayer.colors = @[(id)[UIColor colorWithRed:0x39 / 255.0 green:0x1a / 255.0 blue:0x0f / 255.0 alpha:1.0].CGColor,(id)[UIColor colorWithRed:0x1e / 255.0 green:0x23 / 255.0 blue:0x26 / 255.0 alpha:1.0].CGColor];
+    bgLayer.startPoint = CGPointMake(0, 0.5);
+    bgLayer.endPoint = CGPointMake(1, 0.5);
+    [self.view.layer addSublayer:bgLayer];
+
+    [self liveDisplayView];
+    
+    [self livingContainerView];
+    [self membersButton];
+    [self liveInfoView];
+    [self noticeButton];
+    [self pushStatusView];
+    [self bottomView];
+    [self liveCommentView];
+    [self liveFinishView];
+        
+    [self exitButton];
 }
 
-- (void)onMoreInteractionButtonClicked {
-    AUILiveRoomMorePanel *morePanel = [[AUILiveRoomMorePanel alloc] initWithFrame:CGRectMake(0, self.view.av_height - 200, self.view.av_width, 200)];
+- (void)showPrestartUI {
+    self.livingContainerView.hidden = YES;
+    self.livePrestartView.hidden = NO;
+}
+
+- (void)showLivingUI {
+    self.livingContainerView.hidden = NO;
+    _livePrestartView.hidden = YES;
+    
+    self.liveFinishView.hidden = YES;
+    self.pushStatusView.hidden = NO;
+    self.bottomView.hidden = NO;
+    self.liveCommentView.hidden = NO;
+}
+
+- (void)showFinishUI {
+    self.livingContainerView.hidden = NO;
+    _livePrestartView.hidden = YES;
+    
+    self.liveFinishView.hidden = NO;
+    self.pushStatusView.hidden = YES;
+    self.bottomView.hidden = YES;
+    self.liveCommentView.hidden = YES;
+}
+
+- (void)openMorePanel {
+    AUILiveRoomMorePanel *morePanel = [[AUILiveRoomMorePanel alloc] initWithFrame:CGRectMake(0, 0, self.livingContainerView.av_width, 0)];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeMute selected:self.liveManager.livePusher.isMute];
-    [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypePause selected:self.liveManager.livePusher.isPause];
+    [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeAudioOnly selected:self.liveManager.livePusher.isPause];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeCamera selected:self.liveManager.livePusher.isBackCamera];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeMirror selected:self.liveManager.livePusher.isMirror];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeBan selected:[self.roomManager isMuteAll]];
@@ -333,19 +417,12 @@ AUILiveRoomAnchorBottomViewDelegate
         switch (type) {
             case AUILiveRoomMorePanelActionTypeMute:
             {
-                [weakSelf.liveManager.livePusher mute:!selected];
-                ret = weakSelf.liveManager.livePusher.isMute;
+                ret = ![weakSelf.liveManager openLivePusherMic:selected];
             }
                 break;
-            case AUILiveRoomMorePanelActionTypePause:
+            case AUILiveRoomMorePanelActionTypeAudioOnly:
             {
-                if (!selected) {
-                    [weakSelf.liveManager.livePusher pause];
-                }
-                else {
-                    [weakSelf.liveManager.livePusher resume];
-                }
-                ret = weakSelf.liveManager.livePusher.isPause;
+                ret = ![weakSelf.liveManager openLivePusherCamera:selected];
             }
                 break;
             case AUILiveRoomMorePanelActionTypeCamera:
@@ -358,13 +435,6 @@ AUILiveRoomAnchorBottomViewDelegate
             {
                 [weakSelf.liveManager.livePusher mirror:!selected];
                 ret = weakSelf.liveManager.livePusher.isMirror;
-            }
-                break;
-            case AUILiveRoomMorePanelActionTypeNotice:
-            {
-                [AVAlertController showInput:@"请输入新的直播公告" vc:weakSelf onCompleted:^(NSString * _Nonnull input) {
-                    // TODO:
-                }];
             }
                 break;
             case AUILiveRoomMorePanelActionTypeBan:
@@ -407,163 +477,7 @@ AUILiveRoomAnchorBottomViewDelegate
         return ret;
     };
     [morePanel showOnView:self.livingContainerView];
-}
-
-- (void)onCommentSent:(NSString*)comment {
-    [self.roomManager sendComment:comment completed:nil];
-}
-
-- (void)onLikeSent {
-    [self.roomManager sendLike];
-}
-
-#pragma mark - AUILiveRoomAnchorPrestartViewDelegate
-
-- (void)onPrestartStartLiveButtonClicked {
-    self.livePrestartView.userInteractionEnabled = NO;
-    [self.liveManager startLivePusher];
-    [self startLive];
-}
-
-- (void)onPrestartSwitchCameraButtonClicked {
-    [self.liveManager.livePusher switchCamera];
-}
-
-- (void)onPrestartBeautyButtonClicked {
-    [self.liveManager.livePusher.beautyController showPanel:YES];
-}
-
-
-
-#pragma mark - LifeCycle
-
-- (void)dealloc {
-    
-}
-
-- (instancetype)initWithManger:(AUILiveRoomManager *)manager {
-    self = [super init];
-    if (self) {
-        _roomManager = manager;
-        
-        __weak typeof(self) weakSelf = self;
-        _roomManager.onReceivedComment = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull content) {
-            if (content.length > 0) {
-                NSString *senderNick = sender.nickName;
-                NSString *senderId = sender.userId;
-                [weakSelf.liveCommentView insertLiveComment:content commentSenderNick:senderNick commentSenderID:senderId presentedCompulsorily:NO];
-            }
-        };
-        _roomManager.onReceivedMuteAll = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL isMuteAll) {
-            weakSelf.bottomView.commentState = isMuteAll ?  AUILiveRoomAnchorBottomCommentStateBeenMuteAll : AUILiveRoomAnchorBottomCommentStateDefault;
-        };
-        _roomManager.onReceivedLike = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger likeCount) {
-            [weakSelf.liveInfoView updateLikeCount:likeCount];
-        };
-        _roomManager.onReceivedPV = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger pv) {
-            [weakSelf.liveInfoView updatePV:pv];
-        };
-        _roomManager.onReceivedApplyLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender) {
-            [weakSelf receiveApply:sender];
-        };
-        _roomManager.onReceivedJoinLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, AUIInteractionLiveLinkMicPullInfo * _Nonnull linkMicUserInfo) {
-            [weakSelf receivedJoinLinkMic:linkMicUserInfo];
-        };
-        _roomManager.onReceivedLeaveLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull userId) {
-            [weakSelf receivedLeaveLinkMic:userId];
-        };
-    }
-    return self;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    
-    [self setupUI];
-    
-    self.liveInfoView.anchorNickLabel.text = self.roomManager.liveInfoModel.title ?: AUIInteractionAccountManager.me.nickName;
-    UIImage *avatar = [UIImage imageNamed:AUIInteractionAccountManager.me.avatar];
-    if (avatar) {
-        self.liveInfoView.anchorAvatarView.image = avatar;
-    }
-    [self.liveInfoView updateLikeCount:self.roomManager.allLikeCount];
-    [self.liveInfoView updatePV:self.roomManager.pv];
-    
-    self.livingContainerView.hidden = NO;
-    self.livePrestartView.hidden = YES;
-    self.liveFinishView.hidden = YES;
-    self.linkMicButton.hidden = NO;
-    if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
-        self.livingContainerView.hidden = YES;
-        self.livePrestartView.hidden = NO;
-        self.linkMicButton.hidden = YES;
-    }
-    else if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
-        self.liveFinishView.hidden = NO;
-        self.linkMicButton.hidden = YES;
-    }
-    
-    [self setupLiveManager];
-    
-    // todo: loading
-    __weak typeof(self) weakSelf = self;
-    [self.roomManager enterRoom:^(BOOL success) {
-        if (!success) {
-            [AVAlertController showWithTitle:nil message:@"进行频道失败" needCancel:NO onCompleted:^(BOOL isCanced) {
-                [weakSelf.navigationController popViewControllerAnimated:YES];
-            }];
-        }
-        else {
-            [weakSelf.roomManager queryMuteAll:^(BOOL success) {
-                weakSelf.bottomView.commentState = weakSelf.roomManager.isMuteAll ? AUILiveRoomAnchorBottomCommentStateBeenMuteAll : AUILiveRoomAnchorBottomCommentStateDefault;
-            }];
-            
-            [weakSelf.liveInfoView updateLikeCount:weakSelf.roomManager.allLikeCount];
-            [weakSelf.liveInfoView updatePV:weakSelf.roomManager.pv];
-            
-            if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
-                [weakSelf.liveManager prepareLivePusher];
-            }
-            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusLiving) {
-                [weakSelf.liveManager prepareLivePusher];
-                [weakSelf.liveManager startLivePusher];
-            }
-            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
-            }
-            else {
-                // 状态出错
-            }
-        }
-    }];
-}
-
-- (void)setupUI {
-    [self.view setBackgroundColor:[UIColor blackColor]];
-    
-    [self liveDisplayView];
-    
-    [self livingContainerView];
-    [self pushStatusView];
-    [self liveInfoView];
-    [self noticeButton];
-    [self membersButton];
-    [self liveCommentView];
-    [self bottomView];
-    
-    [self livePrestartView];
-    
-    [self exitButton];
-}
-
-- (void)showLivingUI {
-    _livePrestartView.hidden = YES;
-    [_livePrestartView removeFromSuperview];
-    
-    self.livingContainerView.hidden = NO;
-    self.livingContainerView.alpha = 0.0;
-    [UIView animateWithDuration:0.3 animations:^{
-        self.livingContainerView.alpha = 1.0;
-    }];
+    morePanel.bgViewOnShowing.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.4];
 }
 
 #pragma mark - orientation
@@ -584,20 +498,25 @@ AUILiveRoomAnchorBottomViewDelegate
 
 - (void)startLive {
     __weak typeof(self) weakSelf = self;
+    [self.liveManager startLivePusher];
     [self.roomManager startLive:^(BOOL success) {
         NSLog(@"开始直播：%@", success ? @"成功" : @"失败");
         if (success) {
+            [weakSelf showLivingUI];
+            [weakSelf.livePrestartView removeFromSuperview];
+            weakSelf.livePrestartView = nil;
             return;
         }
-        [AVAlertController showWithTitle:@"提示" message:@"开始直播失败了，是否再试一次" needCancel:YES onCompleted:^(BOOL isCanced) {
-            if (!isCanced) {
-                [weakSelf startLive];
-            }
-        }];
+        
+        [AVToastView show:@"开始直播失败了" view:weakSelf.view position:AVToastViewPositionMid];
+        [weakSelf.livePrestartView restore];
+        [weakSelf.liveManager stopLivePusher];
     }];
 }
 
 - (void)setupLiveManager {
+    
+    __weak typeof(self) weakSelf = self;
     
     if (self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
         self.liveManager = [[AUILiveRoomLinkMicManagerAnchor alloc] initWithRoomManager:self.roomManager displayView:self.liveDisplayView];
@@ -606,23 +525,8 @@ AUILiveRoomAnchorBottomViewDelegate
         self.liveManager = [[AUILiveRoomBaseLiveManagerAnchor alloc] initWithRoomManager:self.roomManager displayView:self.liveDisplayView];
     }
     
-    __weak typeof(self) weakSelf = self;
     self.liveManager.onStartedBlock = ^{
-        [weakSelf showLivingUI];
-        
-        weakSelf.linkMicButton.hidden = NO;
-        weakSelf.pushStatusView.hidden = NO;
-        weakSelf.liveCommentView.showComment = YES;
-        weakSelf.liveCommentView.showLiveSystemMessage = YES;
-        [weakSelf.liveCommentView insertLiveSystemMessage:@"直播已开始"];
-        
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusFluent;
-    };
-    self.liveManager.onPausedBlock = ^{
-        [weakSelf.liveCommentView insertLiveSystemMessage:@"直播已暂停"];
-    };
-    self.liveManager.onResumedBlock = ^{
-        [weakSelf.liveCommentView insertLiveSystemMessage:@"直播已恢复"];
     };
     self.liveManager.onRestartBlock = ^{
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusFluent;
@@ -638,24 +542,28 @@ AUILiveRoomAnchorBottomViewDelegate
     };
     self.liveManager.onConnectErrorBlock = ^{
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusBrokenOff;
-        [weakSelf.pushLoadingIndicator show:NO];
     };
     self.liveManager.onReconnectStartBlock = ^{
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusBrokenOff;
-        [weakSelf.pushLoadingIndicator show:YES];
     };
     self.liveManager.onReconnectSuccessBlock = ^{
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusFluent;
-        [weakSelf.pushLoadingIndicator show:NO];
     };
     self.liveManager.onReconnectErrorBlock = ^{
         weakSelf.pushStatusView.pushStatus = AUILiveRoomPushStatusBrokenOff;
-        [weakSelf.pushLoadingIndicator show:NO];
     };
-    
     self.liveManager.roomVC = self;
     [self.liveManager setupLivePusher];
     self.liveManager.livePusher.beautyController = [[AUILiveRoomBeautyController alloc] initWithPresentView:self.view contextMode:self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic];
+    
+    //
+    AUILiveRoomLinkMicManagerAnchor *linkMicManager = [self linkMicManager];
+    if (linkMicManager) {
+        linkMicManager.applyListChangedBlock = ^(AUILiveRoomLinkMicManagerAnchor * _Nonnull sender) {
+            [weakSelf.bottomView updateLinkMicNumber:sender.currentApplyList.count];
+        };
+        [linkMicManager reportLinkMicJoinList:nil];
+    }
 }
 
 #pragma mark - link mic
@@ -679,14 +587,23 @@ AUILiveRoomAnchorBottomViewDelegate
     
     [[self linkMicManager] receiveApplyLinkMic:sender completed:^(BOOL success) {
         if (success) {
-            [weakSelf openLinkMicPanel];
+            [weakSelf openLinkMicPanel:YES needJump:YES onApplyTab:YES];
         }
     }];
 }
 
-- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicPullInfo *)linkMicUserInfo {
+- (void)receiveCancelApply:(AUIInteractionLiveUser *)sender {
     __weak typeof(self) weakSelf = self;
-    [[self linkMicManager] receivedJoinLinkMic:linkMicUserInfo completed:^(BOOL success) {
+    [[self linkMicManager] receiveCancelApplyLinkMic:sender completed:^(BOOL success) {
+        if (success) {
+            [weakSelf.linkMicPanel reload];
+        }
+    }];
+}
+
+- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicJoinInfoModel *)joinInfo {
+    __weak typeof(self) weakSelf = self;
+    [[self linkMicManager] receivedJoinLinkMic:joinInfo completed:^(BOOL success) {
         if (success) {
             [weakSelf.linkMicPanel reload];
         }
@@ -702,55 +619,53 @@ AUILiveRoomAnchorBottomViewDelegate
     }];
 }
 
-- (AUILiveBlockButton *)linkMicButton {
-    if (self.roomManager.liveInfoModel.mode != AUIInteractionLiveModeLinkMic) {
-        return nil;
-    }
-    if (!_linkMicButton) {
-        AUILiveBlockButton* button = [[AUILiveBlockButton alloc] init];
-        [button setTitle:@"申请列表" forState:UIControlStateNormal];
-        [button setTitleColor:UIColor.cyanColor forState:UIControlStateNormal];
-        button.layer.cornerRadius = 15;
-        button.layer.borderColor = UIColor.cyanColor.CGColor;
-        button.layer.borderWidth = 1;
-//        button.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.3];
-        button.titleLabel.font = AVGetMediumFont(12);
-        [self.livingContainerView addSubview:button];
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.bottom.equalTo(self.livingContainerView).with.offset(-64-AVSafeBottom);
-            make.right.equalTo(self.livingContainerView.mas_right).with.offset(-16);
-            make.height.mas_equalTo(30);
-            make.width.mas_equalTo(60);
-        }];
-
-        __weak typeof(self) weakSelf = self;
-        button.clickBlock = ^(AUILiveBlockButton * _Nonnull sender) {
-            [weakSelf openLinkMicPanel];
-        };
-        _linkMicButton = button;
-    }
-    return _linkMicButton;
+- (void)receivedMicOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened {
+    __weak typeof(self) weakSelf = self;
+    [[self linkMicManager] receivedMicOpened:sender opened:opened completed:^(BOOL success) {
+        if (success) {
+            [weakSelf openLinkMicPanel:NO needJump:NO onApplyTab:NO];
+        }
+    }];
 }
 
-- (void)openLinkMicPanel {
+- (void)receivedCameraOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened {
+    __weak typeof(self) weakSelf = self;
+    [[self linkMicManager] receivedCameraOpened:sender opened:opened completed:^(BOOL success) {
+        if (success) {
+            [weakSelf openLinkMicPanel:NO needJump:NO onApplyTab:NO];
+        }
+    }];
+}
+
+- (void)openLinkMicPanel:(BOOL)open needJump:(BOOL)jump onApplyTab:(BOOL)applyTab {
     
     if (![self linkMicManager].isLiving) {
         return;
     }
     
+    AUILiveRoomLinkMicItemType tab = applyTab ? AUILiveRoomLinkMicItemTypeApply : AUILiveRoomLinkMicItemTypeJoined;
     if (self.linkMicPanel) {
-        [self.linkMicPanel reload];
+        if (self.linkMicPanel.tabType == tab) {
+            [self.linkMicPanel reload];
+            return;
+        }
+        if (jump) {
+            self.linkMicPanel.tabType = tab;
+        }
+        return;
     }
-    else {
+    if (open) {
         __weak typeof(self) weakSelf = self;
-        AUILiveRoomLinkMicListPanel *panel = [[AUILiveRoomLinkMicListPanel alloc] initWithFrame:CGRectMake(0, self.view.av_height - 200, self.view.av_width, 240) withManager:[self linkMicManager]];
+        AUILiveRoomLinkMicListPanel *panel = [[AUILiveRoomLinkMicListPanel alloc] initWithFrame:CGRectMake(0, 0, self.view.av_width, 0) withManager:[self linkMicManager]];
         [panel showOnView:self.view];
+        panel.bgViewOnShowing.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.4];
         panel.onShowChanged = ^(AVBaseControllPanel * _Nonnull sender) {
             if (!weakSelf.linkMicPanel.isShowing) {
                 weakSelf.linkMicPanel = nil;
             }
         };
         weakSelf.linkMicPanel = panel;
+        weakSelf.linkMicPanel.tabType = tab;
     }
 }
 

@@ -6,28 +6,23 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "AUILiveRoomCommentTextField.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol AUILiveRoomAnchorBottomViewDelegate <NSObject>
-- (void)onShareButtonClicked;
-- (void)onBeautyButtonClicked;
-- (void)onMoreInteractionButtonClicked;
-- (void)onCommentSent:(NSString*)comment;
-- (void)onLikeSent;
-@end
-
-typedef NS_ENUM(NSUInteger, AUILiveRoomAnchorBottomCommentState) {
-    AUILiveRoomAnchorBottomCommentStateDefault,
-    AUILiveRoomAnchorBottomCommentStateBeenMuteAll,
-};
 
 @interface AUILiveRoomAnchorBottomView : UIView
 
-@property (assign, nonatomic) AUILiveRoomAnchorBottomCommentState commentState;
-@property (weak, nonatomic) id<AUILiveRoomAnchorBottomViewDelegate> actionsDelegate;
+@property (strong, nonatomic, readonly) AUILiveRoomCommentTextField* commentTextField;
 
-- (void)updateLayoutRotated:(BOOL)rotated;
+@property (copy, nonatomic) void (^onMoreButtonClickedBlock)(AUILiveRoomAnchorBottomView *sender);
+@property (copy, nonatomic) void (^onBeautyButtonClickedBlock)(AUILiveRoomAnchorBottomView *sender);
+@property (copy, nonatomic) void (^onLinkMicButtonClickedBlock)(AUILiveRoomAnchorBottomView *sender);
+@property (copy, nonatomic) void (^sendCommentBlock)(AUILiveRoomAnchorBottomView *sender, NSString *comment);
+
+- (instancetype)initWithFrame:(CGRect)frame linkMic:(BOOL)linkMic;
+
+- (void)updateLinkMicNumber:(NSUInteger)number;
 
 @end
 

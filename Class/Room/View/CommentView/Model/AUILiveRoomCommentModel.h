@@ -11,20 +11,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AUILiveRoomCommentModel : UIView
 
-@property (copy, nonatomic) NSString* senderNick;
-@property (strong, nonatomic) UIColor*  senderNickColor;
-@property (copy, nonatomic) NSString* sentContent;
-@property (strong, nonatomic) UIColor*  sentContentColor;
-@property (copy, nonatomic) NSString* senderID;
-@property (copy, nonatomic, readonly) NSString* fullCommentString;
-@property (copy, nonatomic) NSDictionary* extension;
+@property (assign, nonatomic) CGFloat height;
 
-@end
+@property (copy, nonatomic) NSString *senderID;
+@property (copy, nonatomic) NSString *senderNick;
+@property (copy, nonatomic) UIColor *senderNickColor;
 
-@interface AUILiveRoomSystemMessageModel : NSObject
+@property (copy, nonatomic) NSString *sentContent;
+@property (copy, nonatomic) UIColor *sentContentColor;
 
-@property (copy, nonatomic) NSString* rawMessage;
-@property (copy, nonatomic) NSDictionary* extension;
+@property (copy, nonatomic, readonly) NSAttributedString *renderContent;
+
 
 @end
 

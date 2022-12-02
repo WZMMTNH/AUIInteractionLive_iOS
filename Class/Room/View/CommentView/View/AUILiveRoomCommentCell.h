@@ -6,7 +6,6 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "AUILiveEdgeInsetLabel.h"
 #import "AUILiveRoomCommentModel.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -26,11 +25,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (weak, nonatomic) id<AUILiveRoomCommentCellDelegate> delegate;
 
-@property (strong, nonatomic) AUILiveEdgeInsetLabel* commentLabel;
-@property (strong, nonatomic) AUILiveRoomCommentModel* commentModel;
+@property (strong, nonatomic) AUILiveRoomCommentModel *commentModel;
 
-- (void)addLongPressGestureRecognizer;
-- (void)addTapGestureRecognizer;
++ (CGFloat)heightWithModel:(AUILiveRoomCommentModel *)commentModel withLimitWidth:(CGFloat)limitWidth;
 
 @end
 

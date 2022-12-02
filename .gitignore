@@ -3,3 +3,4 @@ xcuserdata/
 Pods/
 Podfile.lock
 *.DS_Store
+license.crt

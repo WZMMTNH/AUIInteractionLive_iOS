@@ -21,7 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (copy, nonatomic) void(^onPrepareDoneBlock)(void);
 @property (copy, nonatomic) void(^onLoadingStartBlock)(void);
 @property (copy, nonatomic) void(^onLoadingEndBlock)(void);
-@property (copy, nonatomic) void(^onPlayErrorBlock)(BOOL willRetry);
+@property (copy, nonatomic) void(^onPlayErrorBlock)(void);
 
 - (void)prepare;
 - (BOOL)start;

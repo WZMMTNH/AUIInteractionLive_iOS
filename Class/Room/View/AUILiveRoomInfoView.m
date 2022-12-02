@@ -6,103 +6,76 @@
 //
 
 #import "AUILiveRoomInfoView.h"
-#import <Masonry/Masonry.h>
+#import "AUIInteractionLiveMacro.h"
+
+#import "AUILiveRoomAvatarView.h"
+
+#import "AUIInteractionAccountManager.h"
+
+@interface AUILiveRoomInfoView ()
+
+@property (strong, nonatomic) AUILiveRoomAvatarView *avatarView;
+@property (strong, nonatomic) UILabel *titleLabel;
+@property (strong, nonatomic) UILabel *infoLabel;
+@property (strong, nonatomic) AVBlockButton *followButton;
+
+@end
 
 @implementation AUILiveRoomInfoView
 
+- (instancetype)initWithFrame:(CGRect)frame withModel:(AUIInteractionLiveInfoModel *)model {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = [UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4];
+        
+        AUILiveRoomAvatarView *avatarView = [[AUILiveRoomAvatarView alloc] initWithFrame:CGRectMake(4, 4, 32, 32)];
+        avatarView.layer.cornerRadius = 16;
+        avatarView.layer.masksToBounds = YES;
+        [self addSubview:avatarView];
+        self.avatarView = avatarView;
+        
+        AUIInteractionLiveUser *user = [AUIInteractionLiveUser new];
+        user.userId = model.anchor_id;
+        user.nickName = model.anchor_nickName;
+        user.avatar = model.anchor_avatar;
+        self.avatarView.user = user;
+        
+        if (![model.anchor_id isEqualToString:AUIInteractionAccountManager.me.userId]) {
+            AVBlockButton *followButton = [[AVBlockButton alloc] initWithFrame:CGRectMake(self.av_width - 50 - 8, (self.av_height - 22) / 2.0, 50, 22)];
+            followButton.layer.cornerRadius = 11;
+            followButton.titleLabel.font = AVGetRegularFont(12);
+            [followButton setTitle:@"+关注" forState:UIControlStateNormal];
+            [followButton setTitle:@"取消" forState:UIControlStateSelected];
+            [followButton setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+            [followButton setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateSelected];
+            [followButton setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
+            [followButton setBackgroundColor:AUIInteractionLiveColourfulFillDisable forState:UIControlStateSelected];
+            
+            [self addSubview:followButton];
+            self.followButton = followButton;
+            
+            __weak typeof(self) weakSelf = self;
+            self.followButton.clickBlock = ^(AVBlockButton * _Nonnull sender) {
+                if (weakSelf.onFollowButtonClickedBlock) {
+                    weakSelf.onFollowButtonClickedBlock(weakSelf, weakSelf.followButton);
+                }
+            };
+        }
 
-- (UIImageView *)anchorAvatarView {
-    if (!_anchorAvatarView) {
-        UIImageView* imageView = [[UIImageView alloc] init];
-        imageView.layer.masksToBounds = YES;
-        imageView.layer.cornerRadius = 18.25;
-        [self addSubview:imageView];
-        [imageView mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.left.equalTo(self.mas_left).with.offset(2);
-            make.top.equalTo(self.mas_top).with.offset(3);
-            make.size.mas_equalTo(CGSizeMake(36.5, 36.5));
-        }];
-        _anchorAvatarView = imageView;
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(avatarView.av_right + 4, avatarView.av_top, (self.followButton ? (self.followButton.av_left - 8) : (self.av_width - 12)) - avatarView.av_right - 4, 20)];
+        title.text = model.title;
+        title.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        title.font = AVGetRegularFont(14);
+        [self addSubview:title];
+        self.titleLabel = title;
+        
+        UILabel *anchor = [[UILabel alloc] initWithFrame:CGRectMake(avatarView.av_right + 4, avatarView.av_bottom - 14, title.av_width, 14)];
+        anchor.text = model.anchor_nickName;
+        anchor.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        anchor.font = AVGetRegularFont(10);
+        [self addSubview:anchor];
     }
-    return _anchorAvatarView;
-}
-
-- (UILabel *)anchorNickLabel {
-    if(!_anchorNickLabel){
-        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(48, 6, 117, 17)];
-        label.font = [UIFont fontWithName:@"PingFangSC-Semibold" size:14];
-        label.textColor = [UIColor colorWithRed:255.0/255.0 green:255.0/255.0 blue:255.0/255.0 alpha:1.0/1.0];
-        [self addSubview:label];
-        [label mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.left.equalTo(self.mas_left).with.offset(48);
-            make.top.equalTo(self.mas_top).with.offset(6);
-            make.size.mas_equalTo(CGSizeMake(117, 17));
-        }];
-        _anchorNickLabel = label;
-    }
-    return _anchorNickLabel;
-}
-
-- (UILabel *)pvLabel {
-    if(!_pvLabel){
-        UILabel *label = [[UILabel alloc] init];
-        label.font = [UIFont fontWithName:@"PingFangSC-Regular" size:10];
-        label.textColor = [UIColor colorWithRed:255.0/255.0 green:255.0/255.0 blue:255.0/255.0 alpha:1.0/1.0];
-        [self addSubview:label];
-        [label mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.left.equalTo(self.mas_left).with.offset(47);
-            make.top.equalTo(self.mas_top).with.offset(24);
-            make.size.mas_equalTo(CGSizeMake(43, 14));
-        }];
-        _pvLabel = label;
-    }
-    return _pvLabel;
-}
-
-- (UILabel *)likeCountLabel {
-    if(!_likeCountLabel){
-        UILabel *label = [[UILabel alloc] init];
-        label.font = [UIFont fontWithName:@"PingFangSC-Regular" size:10];
-        label.textColor = [UIColor colorWithRed:255.0/255.0 green:255.0/255.0 blue:255.0/255.0 alpha:1.0/1.0];
-        [self addSubview:label];
-        [label mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.left.equalTo(self.pvLabel.mas_right).with.offset(5);
-            make.top.equalTo(self.mas_top).with.offset(24);
-            make.size.mas_equalTo(CGSizeMake(43, 14));
-        }];
-        _likeCountLabel = label;
-    }
-    return _likeCountLabel;
-}
-
-- (void)updateLikeCount:(NSInteger)count {
-    if (count < 0) {
-        self.likeCountLabel.text = @"0点赞";
-    } else if (count < 10000) {
-        self.likeCountLabel.text = [NSString stringWithFormat:@"%zd点赞", count];
-    } else {
-        self.likeCountLabel.text = [NSString stringWithFormat:@"%.1f万点赞", count * 1.0 / 10000.0];
-    }
-    
-    CGSize sizeNew = [self.likeCountLabel.text sizeWithAttributes:@{NSFontAttributeName:self.likeCountLabel.font}];
-    [self.likeCountLabel mas_updateConstraints:^(MASConstraintMaker * _Nonnull make) {
-        make.width.mas_equalTo(sizeNew.width + 18);
-    }];
-}
-
-- (void)updatePV:(NSInteger)pv {
-    if (pv < 0) {
-        self.pvLabel.text = @"0观看";
-    } else if (pv < 10000) {
-        self.pvLabel.text = [NSString stringWithFormat:@"%zd观看", pv];
-    } else {
-        self.pvLabel.text = [NSString stringWithFormat:@"%.1f万观看", pv * 1.0 / 10000.0];
-    }
-    
-    CGSize sizeNew = [self.pvLabel.text sizeWithAttributes:@{NSFontAttributeName:self.pvLabel.font}];
-    [self.pvLabel mas_updateConstraints:^(MASConstraintMaker * _Nonnull make) {
-        make.width.mas_equalTo(sizeNew.width + 18);
-    }];
+    return self;
 }
 
 @end

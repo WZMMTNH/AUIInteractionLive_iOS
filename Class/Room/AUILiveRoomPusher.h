@@ -34,19 +34,19 @@ NS_ASSUME_NONNULL_BEGIN
 @property (copy, nonatomic) void(^onReconnectSuccessBlock)(void);
 @property (copy, nonatomic) void(^onReconnectErrorBlock)(void);
 
-@property (assign, nonatomic, readonly) BOOL isMute;
-@property (assign, nonatomic, readonly) BOOL isPause;
+@property (assign, nonatomic) BOOL isMute; // prepare前设置有效
+@property (assign, nonatomic) BOOL isPause; // prepare前设置有效
 @property (assign, nonatomic, readonly) BOOL isBackCamera;
 @property (assign, nonatomic, readonly) BOOL isMirror;
 
 
 - (void)prepare;
 - (BOOL)start;
+- (BOOL)stop;
 - (void)destory;
 
-- (void)pause;
-- (void)resume;
-- (void)mute:(BOOL)mute;
+- (void)pause:(BOOL)pause; // 关闭视频
+- (void)mute:(BOOL)mute;   // 关闭音频
 - (void)switchCamera;
 - (void)mirror:(BOOL)mirror;
 - (void)setLiveMixTranscodingConfig:(AlivcLiveTranscodingConfig * _Nullable )liveTranscodingConfig;

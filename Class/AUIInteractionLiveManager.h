@@ -16,8 +16,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)defaultManager;
 
-- (void)createLive:(AUIInteractionLiveMode)mode title:(NSString *)title currentVC:(UIViewController *)currentVC;
+- (void)createLive:(AUIInteractionLiveMode)mode title:(NSString *)title notice:(NSString  * _Nullable)notice currentVC:(UIViewController *)currentVC completed:(void(^)(BOOL success))completedBlock;
+- (void)createLive:(UIViewController *)currentVC;
+
 - (void)joinLive:(AUIInteractionLiveInfoModel *)model currentVC:(UIViewController *)currentVC;
+
+- (void)loadLastLiveData;
+- (BOOL)hasLastLive;
+- (void)joinLastLive:(UIViewController *)currentVC;
 
 - (void)logout;
 

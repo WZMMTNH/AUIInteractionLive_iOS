@@ -6,290 +6,152 @@
 //
 
 #import "AUILiveRoomAnchorBottomView.h"
-#import "AUILiveRoomLikeButton.h"
 #import "AUIFoundation.h"
 #import "AUIInteractionLiveMacro.h"
-#import <Masonry/Masonry.h>
 
-@interface AUILiveRoomAnchorBottomView() <UITextFieldDelegate>
 
-@property (strong, nonatomic) UITextField* commentInputField;
-@property (strong, nonatomic) UIButton* shareButton;
-@property (strong, nonatomic) AUILiveRoomLikeButton* likeButton;
-@property (strong, nonatomic) UIButton* beautyButton;
-@property (strong, nonatomic) UIButton* moreInteractionButton;
+@interface AUILiveRoomAnchorBottomView()
 
-@property (assign, nonatomic) BOOL rotated;
+@property (strong, nonatomic) AUILiveRoomCommentTextField *commentTextField;
+
+@property (strong, nonatomic) UIButton *beautyButton;
+@property (strong, nonatomic) UIButton *linkMicButton;
+@property (strong, nonatomic) UIButton *moreButton;
+
+@property (strong, nonatomic) UILabel *linkMicNumberLabel;
 
 @end
 
 @implementation AUILiveRoomAnchorBottomView
 
-- (void)setCommentState:(AUILiveRoomAnchorBottomCommentState)commentState {
-    if (_commentState == commentState) {
-        return;
-    }
-    
-    _commentState = commentState;
-    _commentInputField.text = @"";
-    if (_commentState == AUILiveRoomAnchorBottomCommentStateBeenMuteAll) {
-        NSAttributedString *attrString = [[NSAttributedString alloc] initWithString:@"你已开启全员禁言"
-                                                                         attributes:@{
-                                                                             NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:0.8],
-                                                                             NSFontAttributeName:[UIFont systemFontOfSize:14]
-                                                                         }];
-        _commentInputField.attributedPlaceholder = attrString;
-        _commentInputField.enabled = NO;
-    }
-    else {
-        NSAttributedString *attrString = [[NSAttributedString alloc] initWithString:@"说点什么……"
-                                                                         attributes:@{
-                                                                             NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:0.8],
-                                                                             NSFontAttributeName:[UIFont systemFontOfSize:14]
-                                                                         }];
-        _commentInputField.attributedPlaceholder = attrString;
-        _commentInputField.enabled = YES;
-    }
-}
-
-- (UITextField *)commentInputField {
-    if (!_commentInputField) {
-        UITextField* textField = [[UITextField alloc] init];
-        [self addSubview:textField];
-        [textField mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.bottom.equalTo(self).with.offset(-9);
-            make.left.equalTo(self.mas_left).with.offset(10);
-            make.right.equalTo(self.shareButton.mas_left).with.offset(-10);
-            make.height.mas_equalTo(40);
-        }];
-        textField.layer.masksToBounds = YES;
-        textField.layer.cornerRadius = 20;
-        textField.textColor = [UIColor blackColor];
-        NSAttributedString *attrString = [[NSAttributedString alloc] initWithString:@"说点什么……"
-                                                                         attributes:@{
-                                                                             NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:0.8],
-                                                                             NSFontAttributeName:[UIFont systemFontOfSize:14]
-                                                                         }];
-        textField.attributedPlaceholder = attrString;
-        textField.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.7];
-        textField.textAlignment = NSTextAlignmentLeft;
-        textField.keyboardType = UIKeyboardTypeDefault;
-        textField.returnKeyType = UIReturnKeySend;
-        textField.keyboardAppearance = UIKeyboardAppearanceDefault;
-        textField.delegate = self;
-        textField.borderStyle = UITextBorderStyleRoundedRect;
-        textField.layer.borderColor = [UIColor.whiteColor colorWithAlphaComponent:0.3].CGColor;
-        textField.layer.borderWidth = 1.0;
-        [textField setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-        _commentInputField = textField;
-    }
-    return _commentInputField;
-}
-
-- (UIButton *)beautyButton {
-    if (!_beautyButton) {
-        UIButton* button = [[UIButton alloc] init];
-        [self addSubview:button];
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.right.equalTo(self.moreInteractionButton.mas_left).with.offset(-10);
-            make.centerY.equalTo(self.moreInteractionButton);
-            make.width.mas_equalTo(40);
-            make.height.mas_equalTo(40);
-        }];
-        [button setImage:AUIInteractionLiveGetImage(@"直播-互动区-美颜") forState:UIControlStateNormal];
-        [button setAdjustsImageWhenHighlighted:NO];
-        [button addTarget:self action:@selector(beautyButtonAction:) forControlEvents:UIControlEventTouchUpInside];
-        _beautyButton = button;
-    }
-    return _beautyButton;
-}
-
-- (UIButton *)shareButton {
-    if (!_shareButton) {
-        UIButton* button = [[UIButton alloc] init];
-        [self addSubview:button];
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.right.equalTo(self.likeButton.mas_left).with.offset(-10);
-            make.centerY.equalTo(self.likeButton);
-            make.width.mas_equalTo(40);
-            make.height.mas_equalTo(40);
-        }];
-        [button setImage:AUIInteractionLiveGetImage(@"直播-互动区-分享") forState:UIControlStateNormal];
-        [button setAdjustsImageWhenHighlighted:NO];
-        [button addTarget:self action:@selector(shareButtonAction:) forControlEvents:UIControlEventTouchUpInside];
-        _shareButton = button;
-    }
-    return _shareButton;
-}
-
-- (UIButton *)likeButton {
-    if (!_likeButton) {
-        AUILiveRoomLikeButton* button = [[AUILiveRoomLikeButton alloc] init];
-        [self addSubview:button];
+- (instancetype)initWithFrame:(CGRect)frame linkMic:(BOOL)linkMic {
+    self = [super initWithFrame:frame];
+    if (self) {
+        
+        CGFloat startY = 10;
+        
+        UIButton *moreButton = [[UIButton alloc] initWithFrame:CGRectMake(self.av_right - 16 - 36, startY, 36, 36)];
+        [moreButton setImage:AUIInteractionLiveGetCommonImage(@"ic_living_bottom_more") forState:UIControlStateNormal];
+        moreButton.backgroundColor = [UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4];
+        [moreButton addTarget:self action:@selector(moreButtonAction:) forControlEvents:UIControlEventTouchUpInside];
+        moreButton.layer.masksToBounds = YES;
+        moreButton.layer.cornerRadius = 18;
+        [self addSubview:moreButton];
+        self.moreButton = moreButton;
+        
+        if (linkMic) {
+            UIButton *linkMicButton = [[UIButton alloc] initWithFrame:CGRectMake(moreButton.av_left - 12 - 36, startY, 36, 36)];
+            [linkMicButton setImage:AUIInteractionLiveGetCommonImage(@"ic_living_bottom_link") forState:UIControlStateNormal];
+            linkMicButton.backgroundColor = [UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4];
+            [linkMicButton addTarget:self action:@selector(linkButtonAction:) forControlEvents:UIControlEventTouchUpInside];
+            linkMicButton.layer.masksToBounds = YES;
+            linkMicButton.layer.cornerRadius = 18;
+            [self addSubview:linkMicButton];
+            self.linkMicButton = linkMicButton;
+            
+            UILabel *linkMicNumberLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+            linkMicNumberLabel.font = AVGetRegularFont(12);
+            linkMicNumberLabel.textAlignment = NSTextAlignmentCenter;
+            linkMicNumberLabel.textColor = UIColor.whiteColor;
+            linkMicNumberLabel.backgroundColor = [UIColor av_colorWithHexString:@"#F53F3F"];
+            linkMicNumberLabel.layer.cornerRadius = 8;
+            linkMicNumberLabel.layer.borderWidth = 1;
+            linkMicNumberLabel.layer.borderColor = UIColor.whiteColor.CGColor;
+            linkMicNumberLabel.layer.masksToBounds = YES;
+            linkMicNumberLabel.userInteractionEnabled = NO;
+            [self addSubview:linkMicNumberLabel];
+            self.linkMicNumberLabel = linkMicNumberLabel;
+            self.linkMicNumberLabel.hidden = YES;
+        }
+        
+        UIButton *beautyButton = [[UIButton alloc] initWithFrame:CGRectMake((self.linkMicButton ? self.linkMicButton.av_left : self.moreButton.av_left) - 12 - 36, startY, 36, 36)];
+        [beautyButton setImage:AUIInteractionLiveGetCommonImage(@"ic_living_bottom_beauty") forState:UIControlStateNormal];
+        beautyButton.backgroundColor = [UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4];
+        [beautyButton addTarget:self action:@selector(beautyButtonAction:) forControlEvents:UIControlEventTouchUpInside];
+        beautyButton.layer.masksToBounds = YES;
+        beautyButton.layer.cornerRadius = 18;
+        [self addSubview:beautyButton];
+        self.beautyButton = beautyButton;
+        
+        AUILiveRoomCommentTextField *commentTextField = [[AUILiveRoomCommentTextField alloc] initWithFrame:CGRectMake(16, startY, 120, 36)];
+        commentTextField.layer.masksToBounds = YES;
+        commentTextField.layer.cornerRadius = 18;
+        [self addSubview:commentTextField];
+        self.commentTextField = commentTextField;
         
         __weak typeof(self) weakSelf = self;
-        button.onLikeSent = ^{
-            [weakSelf.actionsDelegate onLikeSent];
+        self.commentTextField.sendCommentBlock = ^(AUILiveRoomCommentTextField * _Nonnull sender, NSString * _Nonnull comment) {
+            if (weakSelf.sendCommentBlock) {
+                weakSelf.sendCommentBlock(weakSelf, comment);
+            }
         };
-        
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.right.equalTo(self.beautyButton.mas_left).with.offset(-10);
-            make.centerY.equalTo(self.beautyButton);
-            make.width.mas_equalTo(40);
-            make.height.mas_equalTo(40);
-
-        }];
-        [button setImage:AUIInteractionLiveGetImage(@"直播-互动区-点赞") forState:UIControlStateNormal];
-        [button setAdjustsImageWhenHighlighted:NO];
-        _likeButton = button;
-    }
-    return _likeButton;
-}
-
-- (UIButton *)moreInteractionButton {
-    if (!_moreInteractionButton) {
-        UIButton* button = [[UIButton alloc] init];
-        [self addSubview:button];
-        [button mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.bottom.equalTo(self).with.offset(-9);
-            make.right.equalTo(self.mas_right).with.offset(-10);
-            make.width.mas_equalTo(40);
-            make.height.mas_equalTo(40);
-        }];
-        [button setImage:AUIInteractionLiveGetImage(@"直播-互动区-更多") forState:UIControlStateNormal];
-        [button setAdjustsImageWhenHighlighted:NO];
-        [button addTarget:self action:@selector(moreInteractionButtonAction:) forControlEvents:UIControlEventTouchUpInside];
-        _moreInteractionButton = button;
-    }
-    return _moreInteractionButton;
-}
-
-#pragma mark --Lifecycle
-
-- (instancetype) init {
-    self = [super init];
-    if (self) {
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyBoardWillShow:) name:UIKeyboardWillShowNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyBoardWillHide:) name:UIKeyboardWillHideNotification object:nil];
-        
-        [self addSubview:self.commentInputField];
-        [self addSubview:self.beautyButton];
-        [self addSubview:self.shareButton];
-        [self addSubview:self.likeButton];
-        [self addSubview:self.moreInteractionButton];
+        self.commentTextField.willEditBlock = ^(AUILiveRoomCommentTextField * _Nonnull sender, CGRect keyboardFrame) {
+            [weakSelf willEditBlock:keyboardFrame];
+        };
+        self.commentTextField.endEditBlock = ^(AUILiveRoomCommentTextField * _Nonnull sender) {
+            [weakSelf endEditBlock];
+        };
     }
     
     return self;
 }
 
-- (void) dealloc {
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-}
-
-#pragma mark --Methods
-
-- (void)updateLayoutRotated:(BOOL)rotated{
-    self.rotated = rotated;
-    
-    if (!rotated){
-        [self.commentInputField mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.bottom.equalTo(self).with.offset(-9);
-            make.left.equalTo(self.mas_left).with.offset(10);
-            make.right.equalTo(self.shareButton.mas_left).with.offset(-10);
-            make.height.mas_equalTo(40);
-        }];
-        return;
+- (void)updateLinkMicNumber:(NSUInteger)number {
+    self.linkMicNumberLabel.hidden = number == 0;
+    if (!self.linkMicNumberLabel.hidden) {
+        NSString *text = number > 99 ? @"99+" : [NSString stringWithFormat:@"%tu", number];
+        self.linkMicNumberLabel.text = text;
+        
+        [self.linkMicNumberLabel sizeToFit];
+        CGFloat width = self.linkMicNumberLabel.av_width + 8;
+        width = MAX(width, 16);
+        self.linkMicNumberLabel.frame = CGRectMake(self.linkMicButton.av_left + 19, self.linkMicButton.av_top - 2, width, 16);
     }
-    
-    [self.commentInputField mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.bottom.equalTo(self).with.offset(-9);
-        make.left.equalTo(self.mas_left).with.offset(10);
-        make.width.mas_equalTo(250);
-        make.height.mas_equalTo(40);
-    }];
 }
 
 #pragma mark --UIButton Selectors
 
 - (void)beautyButtonAction:(UIButton *)sender {
-    [self.actionsDelegate onBeautyButtonClicked];
-}
-
-- (void)moreInteractionButtonAction:(UIButton *)sender {
-    [self.actionsDelegate onMoreInteractionButtonClicked];
-}
-
-- (void)shareButtonAction:(UIButton *)sender {
-    [self.actionsDelegate onShareButtonClicked];
-}
-
-#pragma mark --UITextFieldDelegate
-
-- (void)keyBoardWillShow:(NSNotification *)note {
-    // 获取用户信息
-    NSDictionary *userInfo = [NSDictionary dictionaryWithDictionary:note.userInfo];
-    // 获取键盘高度
-    CGFloat keyBoardHeight = [[userInfo objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue].size.height;
-    if(self.commentInputField.isEditing){
-        self.commentInputField.layer.cornerRadius = 2;
-        self.commentInputField.backgroundColor = [UIColor whiteColor];
-        self.commentInputField.textColor = [UIColor blackColor];
-        [self.commentInputField mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self);
-            make.right.equalTo(self);
-            make.bottom.equalTo(self.superview ? : self).offset(-keyBoardHeight);
-            make.height.mas_equalTo(40);
-        }];
-        [self layoutIfNeeded];
+    if (self.onBeautyButtonClickedBlock) {
+        self.onBeautyButtonClickedBlock(self);
     }
 }
 
-- (void)keyBoardWillHide:(NSNotification *)note {
-
-    self.commentInputField.transform = CGAffineTransformIdentity;
-    self.commentInputField.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.7];
-    self.commentInputField.layer.cornerRadius = 20;
-    self.commentInputField.textColor = [UIColor whiteColor];
-    [self.commentInputField mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.bottom.equalTo(self).with.offset(-9);
-        make.left.equalTo(self).with.offset(10);
-        if (!_rotated){ // 竖屏
-            make.right.equalTo(self.shareButton.mas_left).with.offset(-10);
-        } else{ // 横屏
-            make.width.mas_equalTo(250);
-        }
-        make.height.mas_equalTo(40);
-    }];
-    [self layoutIfNeeded];
-}
-
-#pragma mark --UITextFieldDelegate
-
-- (BOOL)textFieldShouldReturn:(UITextField *)textField {
-    [self.commentInputField resignFirstResponder];    //主要是[receiver resignFirstResponder]在哪调用就能把receiver对应的键盘往下收
-
-    if (textField.text.length > 0) {
-        [self.actionsDelegate onCommentSent:textField.text];
+- (void)moreButtonAction:(UIButton *)sender {
+    if (self.onMoreButtonClickedBlock) {
+        self.onMoreButtonClickedBlock(self);
     }
-    self.commentInputField.text = nil;
-    return YES;
 }
 
-- (BOOL)textFieldShouldClear:(UITextField *)textField {
-     return YES;
+- (void)linkButtonAction:(UIButton *)sender {
+    if (self.onLinkMicButtonClickedBlock) {
+        self.onLinkMicButtonClickedBlock(self);
+    }
+}
+
+- (void)willEditBlock:(CGRect)keyboardEndFrame {
+    self.moreButton.hidden = YES;
+    self.linkMicButton.hidden = YES;
+    self.beautyButton.hidden = YES;
+    self.backgroundColor = AUIFoundationColor(@"bg_weak");
+    self.commentTextField.av_width = self.av_width - 16 * 2;
+    self.transform = CGAffineTransformMakeTranslation(0, -keyboardEndFrame.size.height + self.av_height - (self.commentTextField.av_height + 10 * 2));
+}
+
+- (void)endEditBlock {
+    self.moreButton.hidden = NO;
+    self.linkMicButton.hidden = NO;
+    self.beautyButton.hidden = NO;
+    self.backgroundColor = UIColor.clearColor;
+    self.commentTextField.av_width = 120;
+    self.transform = CGAffineTransformIdentity;
 }
 
 // 重写该方法，使超出此view的输入框能响应点击事件
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *view = [super hitTest:point withEvent:event];
-    if (self.commentInputField.isEditing) {
-        CGPoint tempPoint = [self.commentInputField convertPoint:point fromView:self];
-        if ([self.commentInputField pointInside:tempPoint withEvent:event]) {
-            return self.commentInputField;
-        }
-    }
-    if (!view) {
-        [self.commentInputField resignFirstResponder];
+    if (self.commentTextField.isFirstResponder && view != self.commentTextField) {
+        [self.commentTextField resignFirstResponder];
     }
     return view;
 }

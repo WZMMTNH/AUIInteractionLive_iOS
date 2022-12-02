@@ -79,6 +79,13 @@ static NSString * const kLiveServiceDomainString =  @"http://live-example.live.1
     [task resume];
 }
 
++ (NSDictionary *)finalExtends:(NSDictionary *)param {
+    NSMutableDictionary *extends = [NSMutableDictionary dictionaryWithDictionary:param];
+    [extends setObject:AUIInteractionAccountManager.me.nickName ?: @"" forKey:@"userNick"];
+    [extends setObject:AUIInteractionAccountManager.me.avatar ?: @"" forKey:@"userAvatar"];
+    return extends;
+}
+
 + (void)fetchToken:(void (^)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))completed {
     NSDictionary *body = @{
         @"device_id":AUIInteractionAccountManager.deviceId ?: @"",
@@ -105,14 +112,18 @@ static NSString * const kLiveServiceDomainString =  @"http://live-example.live.1
     }];
 }
 
-+ (void)createLive:(NSString *)groupId  mode:(NSInteger)mode title:(NSString *)title extend:(NSDictionary * _Nullable)extend completed:(void (^)(AUIInteractionLiveInfoModel * _Nullable, NSError * _Nullable))completed {
++ (void)createLive:(NSString *)groupId mode:(NSInteger)mode title:(NSString *)title notice:(NSString *)notice extend:(NSDictionary * _Nullable)extend completed:(void (^)(AUIInteractionLiveInfoModel * _Nullable, NSError * _Nullable))completed {
+    
+    
     
     NSDictionary *body = @{
         @"anchor":AUIInteractionAccountManager.me.userId ?: @"",
+        @"anchor_nick":AUIInteractionAccountManager.me.nickName ?: @"",
         @"id":groupId ?: @"",
         @"mode":@(mode),
         @"title":title ?: @"",
-        @"extends":[self jsonStringWithDict:extend] ?: @"{}"
+        @"notice":notice ?: @"",
+        @"extends":[self jsonStringWithDict:[self finalExtends:extend]]
     };
     NSString *path = @"/api/v1/live/create";
     [self requestWithPath:path bodyDic:body completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
@@ -229,13 +240,20 @@ static NSString * const kLiveServiceDomainString =  @"http://live-example.live.1
     }];
 }
 
-+ (void)updateLive:(NSString *)liveId title:(NSString *)title extend:(NSDictionary *)extend completed:(void (^)(AUIInteractionLiveInfoModel * _Nullable, NSError * _Nullable))completed {
-    NSDictionary *body = @{
-        @"anchor":AUIInteractionAccountManager.me.userId ?: @"",
-        @"id":liveId ?: @"",
-        @"title":title ?: @"",
-        @"extends":[self jsonStringWithDict:extend] ?: @"{}"
-    };
++ (void)updateLive:(NSString *)liveId title:(NSString *)title notice:(NSString *)notice extend:(NSDictionary *)extend completed:(void (^)(AUIInteractionLiveInfoModel * _Nullable, NSError * _Nullable))completed {
+    
+    NSMutableDictionary *body = [NSMutableDictionary dictionary];
+    [body setObject:liveId ?: @"" forKey:@"id"];
+    if (title) {
+        [body setObject:title forKey:@"title"];
+    }
+    if (notice) {
+        [body setObject:notice forKey:@"notice"];
+    }
+    if (extend) {
+        [body setObject:[self jsonStringWithDict:[self finalExtends:extend]] forKey:@"extends"];
+    }
+    
     NSString *path = @"/api/v1/live/update";
     [self requestWithPath:path bodyDic:body completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
         if (error) {
@@ -250,6 +268,72 @@ static NSString * const kLiveServiceDomainString =  @"http://live-example.live.1
         }
         if (completed) {
             completed(model, nil);
+        }
+    }];
+}
+
++ (void)queryLinkMicJoinList:(NSString *)liveId completed:(void(^)(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> * _Nullable models, NSError * _Nullable error))completed {
+    
+    NSDictionary *body = @{
+        @"id":liveId ?: @"",
+    };
+    NSString *path = @"/api/v1/live/getMeetingInfo";
+    [self requestWithPath:path bodyDic:body completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+        if (error) {
+            if (completed) {
+                completed(nil, error);
+            }
+            return;
+        }
+        NSMutableArray<AUIInteractionLiveLinkMicJoinInfoModel *> *list = [NSMutableArray array];
+        if (responseObject && [responseObject isKindOfClass:NSDictionary.class]) {
+            NSArray *listDict = [responseObject objectForKey:@"members"];
+            if ([listDict isKindOfClass:NSArray.class]) {
+                [listDict enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    NSDictionary *dict = obj;
+                    if ([dict isKindOfClass:NSDictionary.class]) {
+                        AUIInteractionLiveLinkMicJoinInfoModel *info = [[AUIInteractionLiveLinkMicJoinInfoModel alloc] initWithResponseData:dict];
+                        [list addObject:info];
+                    }
+                }];
+            }
+        }
+        
+        // for test
+//            for (NSUInteger i=0; i<1; i++) {
+//                AUIInteractionLiveLinkMicJoinInfoModel *joinInfo = [[AUIInteractionLiveLinkMicJoinInfoModel alloc] init:[NSString stringWithFormat:@"uid%tu", i] userNick:[NSString stringWithFormat:@"哈哈的点点滴滴哈哈%tu", i] userAvatar:@"https://img.alicdn.com/imgextra/i4/O1CN01kpUDlF1sEgEJMKHH8_!!6000000005735-2-tps-80-80.png" rtcPullUrl:@""];
+//                joinInfo.cameraOpened = YES;
+//                joinInfo.micOpened = NO;
+//                [list addObject:joinInfo];
+//            }
+        
+        if (completed) {
+            completed(list, nil);
+        }
+    }];
+}
+
++ (void)updateLinkMicJoinList:(NSString *)liveId joinList:(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList completed:(void (^)(NSError * _Nullable))completed {
+    
+    NSMutableArray *list = [NSMutableArray array];
+    [joinList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicJoinInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        [list addObject:[obj toDictionary]];
+    }];
+    
+    NSDictionary *body = @{
+        @"id":liveId ?: @"",
+        @"members":list
+    };
+    NSString *path = @"/api/v1/live/updateMeetingInfo";
+    [self requestWithPath:path bodyDic:body completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
+        if (error) {
+            if (completed) {
+                completed(error);
+            }
+            return;
+        }
+        if (completed) {
+            completed(nil);
         }
     }];
 }

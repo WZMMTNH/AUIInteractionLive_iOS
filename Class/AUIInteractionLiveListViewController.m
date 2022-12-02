@@ -16,8 +16,9 @@
 #import "AUIInteractionAccountManager.h"
 
 #import <MJRefresh/MJRefresh.h>
+#import <YYWebImage/YYWebImage.h>
 
-@interface AUIRoomItem : AVCommonListItem
+@interface AUIRoomItem : NSObject
 
 @property (nonatomic, strong) AUIInteractionLiveInfoModel *roomModel;
 
@@ -33,28 +34,45 @@
     return self;
 }
 
+- (NSString *)cover {
+    return _roomModel.cover;
+}
+
+- (BOOL)living {
+    return _roomModel.status != AUIInteractionLiveStatusFinished;
+}
+
 - (NSString *)title {
     return _roomModel.title;
 }
 
 - (NSString *)info {
-    return [NSString stringWithFormat:@"ID：%@", _roomModel.anchor_id];
-}
-
-- (UIImage *)icon {
-    return AUIInteractionLiveGetImage(@"img-user-default");
+    return _roomModel.anchor_nickName ?: _roomModel.anchor_id;
 }
 
 - (NSString *)metrics {
-    return [NSString stringWithFormat:@"%zd观看，%zd点赞", _roomModel.metrics.pv, _roomModel.metrics.like_count];
+    if (_roomModel.metrics.pv > 10000) {
+        return [NSString stringWithFormat:@"%.1f万观看", _roomModel.metrics.pv / 10000.0];
+    }
+    return [NSString stringWithFormat:@"%zd观看", _roomModel.metrics.pv];
 }
 
 @end
 
-@interface AUIRoomItemCell : AVCommonListItemCell
+@interface AUIRoomItemCell : UICollectionViewCell
 
-@property (nonatomic, strong, readonly) UILabel *metricsLabel;
+@property (nonatomic, strong, readonly) AUIRoomItem *item;
+
 @property (nonatomic, strong, readonly) UIImageView *bgImageView;
+
+@property (nonatomic, strong, readonly) CAGradientLayer *titleBgLayer;
+
+@property (nonatomic, strong, readonly) UILabel *titleLabel;
+@property (nonatomic, strong, readonly) UILabel *infoLabel;
+
+@property (nonatomic, strong, readonly) UIView *metricsBgView;
+@property (nonatomic, strong, readonly) UIImageView *stateView;
+@property (nonatomic, strong, readonly) UILabel *metricsLabel;
 
 @end
 
@@ -66,35 +84,42 @@
     self = [super initWithFrame:frame];
     if (self) {
         self.clipsToBounds = YES;
-        
+        self.layer.cornerRadius = 4;
+
         _bgImageView = [UIImageView new];
-        _bgImageView.image = AUIInteractionLiveGetImage(@"列表页-背景");
-        _bgImageView.alpha = 0.5;
         [self.contentView addSubview:_bgImageView];
-        [self.contentView sendSubviewToBack:_bgImageView];
         
-        self.layer.cornerRadius = 12.0;
-        [self av_setLayerBorderColor:AUIFoundationColor(@"border_weak") borderWidth:1.0];
-        self.infoLabel.textColor = AUIFoundationColor(@"text_strong");
-        self.infoLabel.font = AVGetRegularFont(10);
-        self.titleLabel.font = AVGetRegularFont(10);
+        _titleBgLayer = [CAGradientLayer layer];
+        _titleBgLayer.colors = @[(id)[UIColor av_colorWithHexString:@"#141416" alpha:0.0].CGColor,(id)[UIColor av_colorWithHexString:@"#141416" alpha:0.7].CGColor];
+        _titleBgLayer.startPoint = CGPointMake(0.5, 0);
+        _titleBgLayer.endPoint = CGPointMake(0.5, 1);
+        [self.contentView.layer addSublayer:_titleBgLayer];
+
+        _titleLabel = [UILabel new];
+        _titleLabel.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        _titleLabel.font = AVGetMediumFont(14);
+        _titleLabel.numberOfLines = 1;
+        [self.contentView addSubview:_titleLabel];
         
-        self.iconView.layer.cornerRadius = 15;
-        self.iconView.layer.masksToBounds = YES;
+        _infoLabel = [UILabel new];
+        _infoLabel.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        _infoLabel.font = AVGetRegularFont(12);
+        _infoLabel.numberOfLines = 1;
+        [self.contentView addSubview:_infoLabel];
         
+        _metricsBgView = [UIView new];
+        _metricsBgView.backgroundColor = [UIColor av_colorWithHexString:@"#000000" alpha:0.4];
+        [self.contentView addSubview:_metricsBgView];
         
         _metricsLabel = [UILabel new];
-        _metricsLabel.textColor = AUIFoundationColor(@"text_strong");
-        _metricsLabel.font = AVGetMediumFont(8);
+        _metricsLabel.textAlignment = NSTextAlignmentCenter;
+        _metricsLabel.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        _metricsLabel.font = AVGetRegularFont(12);
         _metricsLabel.numberOfLines = 1;
-        _metricsLabel.textAlignment = NSTextAlignmentRight;
-        _metricsLabel.layer.cornerRadius = 9;
-        _metricsLabel.layer.masksToBounds = YES;
-        _metricsLabel.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.3];
-        _metricsLabel.text = @"";
         [self.contentView addSubview:_metricsLabel];
         
-        [self.contentView bringSubviewToFront:self.viewIconView];
+        _stateView = [UIImageView new];
+        [self.contentView addSubview:_stateView];
     }
     return self;
 }
@@ -104,18 +129,41 @@
     [super layoutSubviews];
     
     self.bgImageView.frame = self.contentView.bounds;
-    self.iconView.frame = CGRectMake(7, self.contentView.av_height - 16 - 30, 30, 30);
-    self.titleLabel.frame = CGRectMake(self.iconView.av_right + 6, self.iconView.av_top, self.contentView.av_width - self.iconView.av_right - 6, 15);
-    self.infoLabel.frame = CGRectMake(self.titleLabel.av_left, self.titleLabel.av_bottom, self.titleLabel.av_width, 15);
+    
+    self.stateView.frame = CGRectMake(0, 0, 20, 20);
+    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRoundedRect:self.stateView.bounds byRoundingCorners:UIRectCornerBottomRight cornerRadii:CGSizeMake(4, 4)];
+    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
+    maskLayer.frame = self.stateView.bounds;
+    maskLayer.path = maskPath.CGPath;
+    self.stateView.layer.mask = maskLayer;
     
     [self.metricsLabel sizeToFit];
-    self.metricsLabel.frame = CGRectMake(7, 10, self.metricsLabel.av_width + 30, 18);
-    self.viewIconView.frame = CGRectMake(7 + 10, 10 + 4, 10, 10);
+    self.metricsLabel.frame = CGRectMake(self.stateView.av_right, 0, self.metricsLabel.av_width + 8, 20);
+    
+    self.metricsBgView.frame = CGRectMake(0, 0, self.metricsLabel.av_right, 20);
+    UIBezierPath *maskPath2 = [UIBezierPath bezierPathWithRoundedRect:self.metricsBgView.bounds byRoundingCorners:UIRectCornerBottomRight cornerRadii:CGSizeMake(4, 4)];
+    CAShapeLayer *maskLayer2 = [[CAShapeLayer alloc] init];
+    maskLayer2.frame = self.metricsBgView.bounds;
+    maskLayer2.path = maskPath2.CGPath;
+    self.metricsBgView.layer.mask = maskLayer2;
+    
+    self.infoLabel.frame = CGRectMake(8, self.contentView.av_height - 4 - 18, self.contentView.av_width - 8 - 8, 18);
+    self.titleLabel.frame = CGRectMake(8, self.infoLabel.av_top - 2 - 20, self.contentView.av_width - 8 - 8, 20);
+    self.titleBgLayer.frame = CGRectMake(0, self.contentView.av_height - 50, self.contentView.av_width, 50);
 }
 
 - (void)updateItem:(AUIRoomItem *)item {
-    [super updateItem:item];
-    self.viewIconView.image = AUIInteractionLiveGetImage(@"列表页-热度");
+    _item = item;
+    if ([item cover].length > 0) {
+        [self.bgImageView yy_setImageWithURL:[NSURL URLWithString:[item cover]] placeholder:AUIInteractionLiveGetCommonImage(@"ic_list_bg")];
+    }
+    else {
+        self.bgImageView.image = AUIInteractionLiveGetCommonImage(@"ic_list_bg");
+    }
+
+    self.titleLabel.text = [item title];
+    self.infoLabel.text = [item info];
+    self.stateView.image = [item living] ? AUIInteractionLiveGetCommonImage(@"ic_list_living") : AUIInteractionLiveGetCommonImage(@"ic_list_finish");
     self.metricsLabel.text = [item metrics];
 }
 
@@ -128,9 +176,15 @@
 @property (nonatomic, strong) NSMutableArray<AUIRoomItem *> *roomList;
 @property (nonatomic, assign) NSInteger lastPageNumber;
 
+@property (nonatomic, strong) UIView *emptyView;
+
 @end
 
 @implementation AUIInteractionLiveListViewController
+
+- (void)dealloc {
+    NSLog(@"dealloc:AUIInteractionLiveListViewController");
+}
 
 - (instancetype)init {
     self = [super init];
@@ -144,17 +198,24 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    self.view.backgroundColor = AUIFoundationColor(@"bg_medium");
-    self.titleView.text = @"直播间";
-    [self setHiddenMenuButton:YES];
+    self.titleView.text = @"直播间列表";
+    self.titleView.font = AVGetRegularFont(16);
     
+    [[AUIInteractionLiveManager defaultManager] loadLastLiveData];
+    [self.menuButton setTitle:@"进入上场直播" forState:UIControlStateNormal];
+    self.menuButton.titleLabel.font = AVGetRegularFont(14);
+    [self.menuButton setTitleColor:AUIFoundationColor(@"text_strong") forState:UIControlStateNormal];
+    [self.menuButton setImage:nil forState:UIControlStateNormal];
+    [self.menuButton sizeToFit];
+    self.menuButton.av_height = 26;
+    self.menuButton.av_right = self.headerView.av_width - 16;
     
-    UIButton *add = [[UIButton alloc] initWithFrame:CGRectMake((self.contentView.av_width - 120) / 2, self.contentView.av_height - AVSafeBottom - 16 - 40, 120, 40)];
-    [add setTitle:@"开播" forState:UIControlStateNormal];
+    UIButton *add = [[UIButton alloc] initWithFrame:CGRectMake(72, self.contentView.av_height - AVSafeBottom - 26 - 44, self.contentView.av_width - 72 - 72, 44)];
+    [add setTitle:@"创建直播间" forState:UIControlStateNormal];
     add.titleLabel.font = AVGetMediumFont(16);
-    add.backgroundColor = AUIFoundationColor(@"colourful_text_strong");
-    [add setTitleColor:AUIFoundationColor(@"text_strong") forState:UIControlStateNormal];
-    add.layer.cornerRadius = 20.0;
+    add.backgroundColor = AUIInteractionLiveColourfulFillStrong;
+    [add setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+    add.layer.cornerRadius = 22.0;
     [add addTarget:self action:@selector(onAddBtnClicked:) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:add];
     
@@ -182,19 +243,47 @@
     }
 }
 
+- (void)showEmptyView {
+    [self hideEmptyView];
+    
+    self.emptyView = [[UIView alloc] initWithFrame:self.contentView.bounds];
+    self.emptyView.userInteractionEnabled = NO;
+    [self.contentView insertSubview:self.emptyView aboveSubview:self.collectionView];
+    
+    UIImageView *icon = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, 180, 116)];
+    icon.image = AUIInteractionLiveGetImage(@"ic_list_bg_empty");
+    icon.av_centerX = self.emptyView.av_width / 2.0;
+    icon.av_centerY = (self.emptyView.av_height - 24 - 16 - AVSafeBottom - 26 - 44) / 2.0;
+    [self.emptyView addSubview:icon];
+    
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(0, icon.av_bottom + 16, self.emptyView.av_width, 24)];
+    title.text = @"暂无直播";
+    title.textAlignment = NSTextAlignmentCenter;
+    title.font = AVGetRegularFont(16);
+    title.textColor = AUIFoundationColor(@"text_ultraweak");
+    [self.emptyView addSubview:title];
+}
+
+- (void)hideEmptyView {
+    [self.emptyView removeFromSuperview];
+    self.emptyView = nil;
+}
+
 - (void)setupRefreshHeader {
     MJRefreshNormalHeader *header = [MJRefreshNormalHeader headerWithRefreshingTarget:self refreshingAction:@selector(refreshMessage)];
+    header.lastUpdatedTimeLabel.hidden = YES;
     self.collectionView.mj_header = header;
     [header loadingView].activityIndicatorViewStyle = UIActivityIndicatorViewStyleWhite;
+    header.stateLabel.font = AVGetRegularFont(14);
     header.stateLabel.textColor = AUIFoundationColor(@"text_weak");
 }
 
 - (void)setupLoadMoreFooter {
     MJRefreshAutoNormalFooter *footer = [MJRefreshAutoNormalFooter footerWithRefreshingTarget:self refreshingAction:@selector(loadMoreMessage)];
     self.collectionView.mj_footer = footer;
-    [footer setTitle:@"没有更多了" forState:MJRefreshStateNoMoreData];
+    [footer setTitle:@"" forState:MJRefreshStateNoMoreData];
     [footer setTitle:@"" forState:MJRefreshStateIdle];
-    footer.stateLabel.font = [UIFont systemFontOfSize:14.0f];
+    footer.stateLabel.font = AVGetRegularFont(14);
     footer.stateLabel.textColor = AUIFoundationColor(@"text_weak");
     [footer loadingView].activityIndicatorViewStyle = UIActivityIndicatorViewStyleWhite;
 }
@@ -222,13 +311,24 @@
             if (models.count == 0) {
                 self.lastPageNumber = 1;
                 [self.collectionView.mj_footer endRefreshingWithNoMoreData];
+                [self showEmptyView];
             }
             else {
                 self.lastPageNumber = 2;
+                [self hideEmptyView];
             }
         }
         else {
-            [AVAlertController show:[NSString stringWithFormat:@"出错了：%zd", error.code] vc:self];
+            BOOL showAlert = YES;
+            if (error.code == 401) {
+                if (self.onLoginTokenExpired) {
+                    self.onLoginTokenExpired();
+                    showAlert = NO;
+                }
+            }
+            if (showAlert) {
+                [AVAlertController show:[NSString stringWithFormat:@"出错了：%zd", error.code] vc:self];
+            }
         }
     }];
 }
@@ -264,34 +364,46 @@
             }
         }
         else {
-            [AVAlertController show:[NSString stringWithFormat:@"出错了：%@", error.userInfo] vc:self];
+            BOOL showAlert = YES;
+            if (error.code == 401) {
+                if (self.onLoginTokenExpired) {
+                    self.onLoginTokenExpired();
+                    showAlert = NO;
+                }
+            }
+            if (showAlert) {
+                [AVAlertController show:[NSString stringWithFormat:@"出错了：%zd", error.code] vc:self];
+            }
         }
     }];
 }
 
-- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
-{
+- (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
+    return self.roomList.count;
+}
+
+- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
     AUIRoomItemCell *cell = [self.collectionView dequeueReusableCellWithReuseIdentifier:AVCollectionViewCellIdentifier forIndexPath:indexPath];
-    [cell updateItem:self.itemList[indexPath.row]];
+    [cell updateItem:self.roomList[indexPath.row]];
     return cell;
 }
 
-- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath
-{
-    return CGSizeMake((self.collectionView.av_width - 20 - 20 - 15) / 2.0, 192.0);
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath {
+    CGFloat width = (self.collectionView.av_width - 16 - 16 - 13) / 2.0;
+    return CGSizeMake(width, width);
 }
 
 - (CGFloat)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout minimumInteritemSpacingForSectionAtIndex:(NSInteger)section {
-    return 15.0f;
+    return 12.0f;
 }
 
 - (CGFloat)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout*)collectionViewLayout minimumLineSpacingForSectionAtIndex:(NSInteger)section
 {
-    return 15.0;
+    return 16.0;
 }
 
 - (UIEdgeInsets)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout insetForSectionAtIndex:(NSInteger)section {
-    return UIEdgeInsetsMake(15, 20, 44, 20);
+    return UIEdgeInsetsMake(8, 16, 26 + 44, 16);
 }
 
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
@@ -303,21 +415,14 @@
     [self createLive];
 }
 
-#pragma mark - controll
-
-- (NSArray<AVCommonListItem *> *)itemList {
-    return _roomList;
+- (void)onMenuClicked:(UIButton *)sender {
+    [[AUIInteractionLiveManager defaultManager] joinLastLive:self];
 }
 
+#pragma mark - controller
+
 - (void)createLive {
-    [AVAlertController showInput:[NSString stringWithFormat:@"%@的直播", AUIInteractionAccountManager.me.nickName] title:@"输入直播标题" message:nil okTitle:@"连麦直播" cancelTitle:@"基础直播" vc:self onCompleted:^(NSString * _Nonnull input, BOOL isCancel) {
-        if (input.length == 0) {
-            return;
-        }
-        [AUILiveRoomBeautyManager checkResourceWithCurrentView:self.view completed:^(BOOL completed) {
-            [[AUIInteractionLiveManager defaultManager] createLive:isCancel ? AUIInteractionLiveModeBase : AUIInteractionLiveModeLinkMic title:input currentVC:self];
-        }];
-    }];
+    [[AUIInteractionLiveManager defaultManager] createLive:self];
 }
 
 - (void)joinLive:(AUIInteractionLiveInfoModel *)roomModel {

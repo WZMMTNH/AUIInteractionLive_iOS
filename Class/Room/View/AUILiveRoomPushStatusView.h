@@ -19,8 +19,7 @@ typedef NS_ENUM(NSInteger, AUILiveRoomPushStatus)
 @interface AUILiveRoomPushStatusView : UIView
 
 @property (assign, nonatomic) AUILiveRoomPushStatus pushStatus;
-@property (strong, nonatomic) UIButton *statusColorButton;
-@property (strong, nonatomic) UILabel *statusTextLabel;
+
 
 @end
 

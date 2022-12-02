@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1F48A7D682F775938E94C904 /* libPods-AUIInteractionLiveDemo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AE079F70418AA88343945183 /* libPods-AUIInteractionLiveDemo.a */; };
+		4185603E293A264600999B62 /* LoginViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4185603C293A264600999B62 /* LoginViewController.m */; };
 		41F38267291110390034CE1E /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 41F38266291110390034CE1E /* AppDelegate.m */; };
 		41F382722911103B0034CE1E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F382712911103B0034CE1E /* Assets.xcassets */; };
 		41F382752911103B0034CE1E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 41F382732911103B0034CE1E /* LaunchScreen.storyboard */; };
@@ -17,6 +18,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4185603C293A264600999B62 /* LoginViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LoginViewController.m; sourceTree = "<group>"; };
+		4185603D293A264600999B62 /* LoginViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LoginViewController.h; sourceTree = "<group>"; };
 		41F38262291110390034CE1E /* AUIInteractionLiveDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AUIInteractionLiveDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		41F38265291110390034CE1E /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		41F38266291110390034CE1E /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -83,6 +86,8 @@
 			children = (
 				41F3828A29111A0D0034CE1E /* LiveViewController.h */,
 				41F3828B29111A0D0034CE1E /* LiveViewController.m */,
+				4185603D293A264600999B62 /* LoginViewController.h */,
+				4185603C293A264600999B62 /* LoginViewController.m */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -237,6 +242,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4185603E293A264600999B62 /* LoginViewController.m in Sources */,
 				41F3828C29111A0D0034CE1E /* LiveViewController.m in Sources */,
 				41F38267291110390034CE1E /* AppDelegate.m in Sources */,
 				41F382782911103B0034CE1E /* main.m in Sources */,

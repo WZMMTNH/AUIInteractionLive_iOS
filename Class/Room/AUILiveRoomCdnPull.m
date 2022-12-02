@@ -8,16 +8,14 @@
 #import "AUILiveRoomCdnPull.h"
 #import "AUIInteractionLiveSDKHeader.h"
 #import "AUIFoundation.h"
-#import "AUILiveBlockButton.h"
 #import <Masonry/Masonry.h>
 
 @interface AUILiveRoomCdnPull () <AVPDelegate>
 
 @property (strong, nonatomic) AliPlayer *player;
 
-@property (strong, nonatomic) AUILiveBlockButton *infoButton;
-
-@property (assign, nonatomic) NSUInteger retryCount;
+@property (assign, nonatomic) BOOL playRts;
+@property (assign, nonatomic) BOOL canRts;
 
 @end
 
@@ -29,67 +27,94 @@
     if (!_displayView) {
         _displayView = [[AUILiveRoomLiveDisplayView alloc] initWithFrame:CGRectZero];
         _displayView.nickName = @"主播";
+        _displayView.isAnchor = YES;
     }
     return _displayView;
 }
 
-- (AUILiveBlockButton *)infoButton {
-    if (!_infoButton) {
-        _infoButton = [[AUILiveBlockButton alloc] initWithFrame:self.displayView.bounds];
-        [_infoButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-        _infoButton.titleLabel.font = AVGetRegularFont(14);
-        _infoButton.titleLabel.numberOfLines = 0;
-        _infoButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-        [self.displayView addSubview:_infoButton];
-        [_infoButton mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.edges.equalTo(self.displayView);
-        }];
-        
-        __weak typeof(self) weakSelf = self;
-        _infoButton.clickBlock = ^(AUILiveBlockButton * _Nonnull sender) {
-            [weakSelf start];
-        };
+- (void)setLiveInfoModel:(AUIInteractionLiveInfoModel *)liveInfoModel {
+    _liveInfoModel = liveInfoModel;
+    
+    BOOL canRts = NO;
+    if (self.liveInfoModel.mode == AUIInteractionLiveModeBase) {
+        if (self.liveInfoModel.pull_url_info.rts_url.length > 0) {
+            canRts = YES;
+        }
     }
-    return _infoButton;
+    if (self.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
+        if (self.liveInfoModel.link_info.cdn_pull_info.rts_url.length > 0) {
+            canRts = YES;
+        }
+    }
+//    canRts = NO;
+    self.canRts = canRts;
+    self.playRts = canRts;
+    NSLog(@"cdn拉流：%@支持rts播放", self.canRts ? @"" : @"不");
 }
 
 #pragma mark - live play
 
-- (void)prepare {
+- (AVPConfig *)rtsConfig {
     AVPConfig *config = [[AVPConfig alloc] init];
-    config.networkTimeout = 5000;
-    config.networkRetryCount = 5;
-    
+    [config setNetworkTimeout:15000];
+    [config setMaxDelayTime:1000];
+    [config setHighBufferDuration:10];
+    [config setStartBufferDuration:10];
+    [config setNetworkRetryCount:2];
+    return config;
+}
+
+- (AVPConfig *)playConfig {
+    AVPConfig *config = [[AVPConfig alloc] init];
+    [config setNetworkTimeout:15000];
+    [config setNetworkRetryCount:2];
+    return config;
+}
+
+- (void)prepare {
+    AVPConfig *config = self.playRts ? [self rtsConfig] : [self playConfig];
+
     _player = [[AliPlayer alloc] init];
     [_player setConfig:config];
     _player.delegate = self;
     _player.autoPlay = YES;
+    _player.scalingMode = AVP_SCALINGMODE_SCALEASPECTFILL;
     [_player setPlayerView:self.displayView.renderView];
 }
 
 - (BOOL)start {
-    self.infoButton.hidden = YES;
     [_player stop];
+    
+    NSString *playUrl = nil;
     if (self.liveInfoModel.mode == AUIInteractionLiveModeBase) {
-        if (self.liveInfoModel.pull_url_info.rtmp_url.length > 0) {
-            [_player setUrlSource:[[AVPUrlSource alloc] urlWithString:self.liveInfoModel.pull_url_info.rtmp_url]];
-            if (self.onPrepareStartBlock) {
-                self.onPrepareStartBlock();
-            }
-            [_player prepare];
-            return YES;
+        if (self.playRts) {
+            playUrl = self.liveInfoModel.pull_url_info.rts_url;
+        }
+        else {
+            playUrl = self.liveInfoModel.pull_url_info.flv_url;
         }
     }
-    if (self.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
-        if (self.liveInfoModel.link_info.cdn_pull_info.rtmp_url.length > 0) {
-            [_player setUrlSource:[[AVPUrlSource alloc] urlWithString:self.liveInfoModel.link_info.cdn_pull_info.rtmp_url]];
-            if (self.onPrepareStartBlock) {
-                self.onPrepareStartBlock();
-            }
-            [_player prepare];
-            return YES;
+    else if (self.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
+        if (self.playRts) {
+            playUrl = self.liveInfoModel.link_info.cdn_pull_info.rts_url;
+        }
+        else {
+            playUrl = self.liveInfoModel.link_info.cdn_pull_info.flv_url;
         }
     }
+    
+    if (playUrl.length > 0) {
+        [_player setUrlSource:[[AVPUrlSource alloc] urlWithString:playUrl]];
+        [self.displayView startLoading];
+        if (self.onPrepareStartBlock) {
+            self.onPrepareStartBlock();
+        }
+        [_player prepare];
+        NSLog(@"cdn拉流：开始播放，播放地址：%@", playUrl);
+        
+        return YES;
+    }
+    
     [AVAlertController show:@"播放失败，缺少播放地址"];
     return NO;
 }
@@ -104,68 +129,70 @@
 
 #pragma mark - AVPDelegate
 -(void)onPlayerEvent:(AliPlayer*)player eventType:(AVPEventType)eventType {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        switch (eventType) {
-            case AVPEventPrepareDone: {
-                if (self.onPrepareDoneBlock) {
-                    self.onPrepareDoneBlock();
-                }
-                self.retryCount = 0;
+    switch (eventType) {
+        case AVPEventPrepareDone: {
+            NSLog(@"cdn拉流：播放已准备好");
+            [self.displayView endLoading];
+            if (self.onPrepareDoneBlock) {
+                self.onPrepareDoneBlock();
             }
-                break;
-            case AVPEventLoadingStart: {
-                if (self.onLoadingStartBlock) {
-                    self.onLoadingStartBlock();
-                }
-            }
-                break;
-            case AVPEventLoadingEnd: {
-                if (self.onLoadingEndBlock) {
-                    self.onLoadingEndBlock();
-                }
-            }
-                break;
-            case AVPEventFirstRenderedStart: {
-            }
-                break;
-                
-            default:
-                break;
         }
-        
-    });
+            break;
+        case AVPEventLoadingStart: {
+            NSLog(@"cdn拉流：开始加载");
+            [self.displayView startLoading];
+            if (self.onLoadingStartBlock) {
+                self.onLoadingStartBlock();
+            }
+        }
+            break;
+        case AVPEventLoadingEnd: {
+            NSLog(@"cdn拉流：加载结束");
+            [self.displayView endLoading];
+            if (self.onLoadingEndBlock) {
+                self.onLoadingEndBlock();
+            }
+        }
+            break;
+        case AVPEventFirstRenderedStart: {
+            NSLog(@"cdn拉流：首帧渲染完成");
+        }
+            break;
+            
+        default:
+            break;
+    }
 }
 
 - (void)onError:(AliPlayer *)player errorModel:(AVPErrorModel *)errorModel {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.retryCount < 10) {
-            if (self.onPlayErrorBlock) {
-                self.onPlayErrorBlock(YES);
-            }
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                [self start];
-            });
-            self.retryCount++;
-            return;
+    NSLog(@"cdn拉流：播放出错(%tu, %@)", errorModel.code, errorModel.message);
+
+    if (self.playRts) {
+        NSLog(@"cdn拉流：rts播放失败，使用flv进行播放");
+        self.playRts = NO;
+        [self destory];
+        [self prepare];
+        [self start];
+        return;
+    }
+
+    NSLog(@"cdn拉流：使用flv播放失败，是否重试");
+
+    NSString *title = @"直播中断，您可尝试再次拉流";
+    [AVAlertController showWithTitle:nil message:title cancelTitle:@"取消" okTitle:@"重试" onCompleted:^(BOOL isCanced) {
+        if (!isCanced) {
+            NSLog(@"cdn拉流：开始重试");
+            self.playRts = self.canRts;
+            [self destory];
+            [self prepare];
+            [self start];
         }
-        
-        NSString *title = @"播放失败，可能是播放流已停止\n点击重试？";
-        self.infoButton.hidden = NO;
-        [self.infoButton setTitle:title forState:UIControlStateNormal];
-        [self.player stop];
-        
-        if (self.onPlayErrorBlock) {
-            self.onPlayErrorBlock(NO);
-        }
-//        [AVAlertController showWithTitle:nil message:@"播放失败，是否重试？" needCancel:YES onCompleted:^(BOOL isCancel) {
-//            if (!isCancel) {
-//                [self start];
-//            }
-//            else {
-//                [self destory];
-//            }
-//        }];
-    });
+    }];
+    
+    [self.displayView endLoading];
+    if (self.onPlayErrorBlock) {
+        self.onPlayErrorBlock();
+    }
 }
 
 @end

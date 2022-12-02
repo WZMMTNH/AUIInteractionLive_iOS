@@ -6,26 +6,21 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "AUILiveRoomCommentTextField.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol AUILiveRoomAudienceBottomViewDelegate <NSObject>
-- (void)onShareButtonClicked;
-- (void)onCommentSent:(NSString*)comment;
-- (void)onLikeSent;
-@end
-
-typedef NS_ENUM(NSUInteger, AUILiveRoomAudienceBottomCommentState) {
-    AUILiveRoomAudienceBottomCommentStateDefault,
-    AUILiveRoomAudienceBottomCommentStateBeenMuteAll,
-};
-
 @interface AUILiveRoomAudienceBottomView : UIView
 
-@property (assign, nonatomic) AUILiveRoomAudienceBottomCommentState commentState;
-@property (weak, nonatomic) id<AUILiveRoomAudienceBottomViewDelegate> actionsDelegate;
+@property (strong, nonatomic, readonly) AUILiveRoomCommentTextField* commentTextField;
 
-- (void)updateLayoutRotated:(BOOL)rotated;
+@property (copy, nonatomic) void (^onLikeButtonClickedBlock)(AUILiveRoomAudienceBottomView *sender);
+@property (copy, nonatomic) void (^onLinkMicButtonClickedBlock)(AUILiveRoomAudienceBottomView *sender);
+@property (copy, nonatomic) void (^onShareButtonClickedBlock)(AUILiveRoomAudienceBottomView *sender);
+@property (copy, nonatomic) void (^sendCommentBlock)(AUILiveRoomAudienceBottomView *sender, NSString *comment);
+
+- (instancetype)initWithFrame:(CGRect)frame linkMic:(BOOL)linkMic;
+
 
 
 @end

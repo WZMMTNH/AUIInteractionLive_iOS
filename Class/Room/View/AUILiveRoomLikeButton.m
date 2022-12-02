@@ -8,23 +8,61 @@
 #import "AUILiveRoomLikeButton.h"
 #import "AUIInteractionLiveMacro.h"
 
+@interface AUILiveRoomLikeButton ()
+
+@property (nonatomic, assign) BOOL isRepeatLikeAnimation;
+@property (nonatomic, strong) NSTimer *animationTimer;
+
+@end
+
 @implementation AUILiveRoomLikeButton
 
-- (instancetype) init {
-    self = [super init];
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
     if (self) {
-        [self addTarget:self action:@selector(onClicked) forControlEvents:UIControlEventTouchUpInside];
     }
     return self;
 }
 
-- (void)onClicked {
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesBegan:touches withEvent:event];
+    NSLog(@"like_button:touchesBegan");
+    self.isRepeatLikeAnimation = YES;
+    [self likeAnimation];
+    [self startLikeTimer];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesEnded:touches withEvent:event];
+    NSLog(@"like_button:touchesEnded");
+    self.isRepeatLikeAnimation = NO;
+    [self stopLikeTimer];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesCancelled:touches withEvent:event];
+    NSLog(@"like_button:touchesCancelled");
+    self.isRepeatLikeAnimation = NO;
+    [self stopLikeTimer];
+}
+
+- (void)startLikeTimer {
+    self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:0.2 target:self selector:@selector(likeAnimation) userInfo:nil repeats:YES];
+}
+
+- (void)stopLikeTimer {
+    [self.animationTimer invalidate];
+    self.animationTimer = nil;
+}
+
+- (void)likeAnimation {
+    NSLog(@"like_button:timer to animation");
+
+    if (!self.isRepeatLikeAnimation) {
+        [self stopLikeTimer];
+        return;
+    }
     
-    dispatch_async(dispatch_get_main_queue(), ^{
-        self.onLikeSent();
-    });
-    
-    //在主线程上调用该方法
     UIImageView *imageView = [[UIImageView alloc] init];
     CGRect frame = self.superview.superview.frame;
     // 初始frame，即设置了动画的起点
@@ -42,9 +80,9 @@
     }];
     [self.superview.superview addSubview:imageView];
     // 随机产生一个动画结束点的X值
-    CGFloat finishX = frame.size.width - round(random() %200);
+    CGFloat finishX = frame.size.width - round(random() % 120);
     // 动画结束点的Y值
-    CGFloat finishY = 200;
+    CGFloat finishY = imageView.frame.origin.y - 214;
     // imageView在运动过程中的缩放比例
     CGFloat scale = round(random() %2) +0.7;
     // 生成一个作为速度参数的随机数
@@ -58,7 +96,8 @@
     // 设置动画时间
     [UIView setAnimationDuration:duration];
     // 拼接图片名字
-    imageView.image = AUIInteractionLiveGetImage(@"img-like_send");
+    NSString *ic_like = [NSString stringWithFormat:@"ic_like_%u", arc4random() % 6 + 1];
+    imageView.image = AUIInteractionLiveGetCommonImage(ic_like);
     // 设置imageView的结束frame
     imageView.frame =CGRectMake( finishX, finishY,30* scale,30* scale);
     // 设置渐渐消失的效果，这里的时间最好和动画时间一致

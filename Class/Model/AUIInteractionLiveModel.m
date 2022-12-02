@@ -48,35 +48,45 @@
 
 @end
 
-@implementation AUIInteractionLiveLinkMicPullInfo
+@implementation AUIInteractionLiveLinkMicJoinInfoModel
 
 - (instancetype)initWithResponseData:(NSDictionary *)data {
     self = [super initWithResponseData:data];
     if (self) {
-        _userId = [data objectForKey:@"userId"];
-        _userNick = [data objectForKey:@"userNick"];
-        _rtcPullUrl = [data objectForKey:@"rtcPullUrl"];
+        _userId = [data objectForKey:@"user_id"];
+        _userNick = [data objectForKey:@"user_nick"];
+        _userAvatar = [data objectForKey:@"user_avatar"];
+        _rtcPullUrl = [data objectForKey:@"rtc_pull_url"];
+        _cameraOpened = [[data objectForKey:@"camera_opened"] boolValue];
+        _micOpened = [[data objectForKey:@"mic_opened"] boolValue];
     }
     return self;
 }
 
-- (instancetype)init:(NSString *)userId userNick:(NSString *)userNick rtcPullUrl:(NSString *)rtcPullUrl {
+- (instancetype)init:(NSString *)userId userNick:(NSString *)userNick userAvatar:(nonnull NSString *)userAvatar rtcPullUrl:(nonnull NSString *)rtcPullUrl {
     self = [super init];
     if (self) {
         _userId = userId;
         _userNick = userNick;
+        _userAvatar = userAvatar;
         _rtcPullUrl = rtcPullUrl;
+        _cameraOpened = YES;
+        _micOpened = YES;
     }
     return self;
 }
 
 - (NSDictionary *)toDictionary {
     return @{
-        @"userId":_userId ?: @"",
-        @"userNick":_userNick ?: @"",
-        @"rtcPullUrl":_rtcPullUrl ?: @"",
+        @"user_id":_userId ?: @"",
+        @"user_nick":_userNick ?: @"",
+        @"user_avatar":_userAvatar ?: @"",
+        @"rtc_pull_url":_rtcPullUrl ?: @"",
+        @"mic_opened":@(_micOpened),
+        @"camera_opened":@(_cameraOpened),
     };
 }
+
 
 @end
 
@@ -93,21 +103,6 @@
         _rtc_push_url = [data objectForKey:@"rtc_push_url"];
     }
     return self;
-}
-
-- (void)parseExtends:(NSDictionary *)extends {
-    NSMutableArray *list = [NSMutableArray array];
-    NSArray *listDict = [extends objectForKey:@"linkMicInfo"];
-    if ([listDict isKindOfClass:NSArray.class]) {
-        [listDict enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            NSDictionary *dict = obj;
-            if ([dict isKindOfClass:NSDictionary.class]) {
-                AUIInteractionLiveLinkMicPullInfo *info = [[AUIInteractionLiveLinkMicPullInfo alloc] initWithResponseData:dict];
-                [list addObject:info];
-            }
-        }];
-    }
-    _linkMicList = [list copy];
 }
 
 @end
@@ -129,6 +124,28 @@
 @end
 
 
+@implementation AUIInteractionLiveVodInfoModel
+
+- (instancetype)initWithResponseData:(NSDictionary *)data {
+    self = [super initWithResponseData:data];
+    if (self) {
+        NSInteger status = [[data objectForKey:@"status"] integerValue];
+        NSArray *playList = [data objectForKey:@"playlist"];
+        if ([playList isKindOfClass:NSArray.class]) {
+            NSDictionary *first = playList.firstObject;
+            if ([first isKindOfClass:NSDictionary.class]) {
+                _play_url = [first objectForKey:@"play_url"];
+            }
+        }
+        if (status == 1 && _play_url.length > 0) {
+            _isValid = YES;
+        }
+    }
+    return self;
+}
+
+@end
+
 
 @implementation AUIInteractionLiveInfoModel
 
@@ -144,6 +161,7 @@
         _title = [data objectForKey:@"title"];
         _pk_id = [data objectForKey:@"pk_id"];
         _status = [[data objectForKey:@"status"] integerValue];
+        _notice = [data objectForKey:@"notice"];
         
         NSString *extendJson = [data objectForKey:@"extends"];
         _extends = [NSJSONSerialization JSONObjectWithData:[extendJson dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:nil];
@@ -166,8 +184,18 @@
         NSDictionary *link_dict = [data objectForKey:@"link_info"];
         if ([link_dict isKindOfClass:NSDictionary.class]) {
             _link_info = [[AUIInteractionLiveLinkMicModel alloc] initWithResponseData:link_dict];
-            [_link_info parseExtends:_extends];
         }
+        
+        NSDictionary *vod_dict = [data objectForKey:@"vod_info"];
+        if ([vod_dict isKindOfClass:NSDictionary.class]) {
+            _vod_info = [[AUIInteractionLiveVodInfoModel alloc] initWithResponseData:vod_dict];
+        }
+        
+        _anchor_nickName = [data objectForKey:@"anchor_nick"];
+        if (_anchor_nickName.length == 0) {
+            _anchor_nickName = [_extends objectForKey:@"userNick"];
+        }
+        _anchor_avatar = [_extends objectForKey:@"userAvatar"];
     }
     return self;
 }

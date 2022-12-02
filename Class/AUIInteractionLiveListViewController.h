@@ -10,7 +10,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface AUIInteractionLiveListViewController : AVCommonListViewController
+@interface AUIInteractionLiveListViewController : AVBaseCollectionViewController
+
+@property (nonatomic, copy) void (^onLoginTokenExpired)(void);
 
 @end
 

@@ -6,27 +6,20 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "AUIInteractionLiveModel.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol AUILiveRoomAnchorPrestartViewDelegate <NSObject>
-
-- (void)onPrestartStartLiveButtonClicked;
-- (void)onPrestartSwitchCameraButtonClicked;
-- (void)onPrestartBeautyButtonClicked;
-
-@end
-
 @interface AUILiveRoomAnchorPrestartView : UIView
 
+@property (copy, nonatomic) void (^onBeautyBlock)(AUILiveRoomAnchorPrestartView *sender);
+@property (copy, nonatomic) void (^onSwitchCameraBlock)(AUILiveRoomAnchorPrestartView *sender);
+@property (copy, nonatomic) BOOL (^onWillStartLiveBlock)(AUILiveRoomAnchorPrestartView *sender);
+@property (copy, nonatomic) void (^onStartLiveBlock)(AUILiveRoomAnchorPrestartView *sender);
 
-@property (strong, nonatomic) UIButton *switchCameraButton;
-@property (strong, nonatomic) UIButton *beautyButton;
-@property (strong, nonatomic) UIButton *startLiveButton;
+- (instancetype)initWithFrame:(CGRect)frame withModel:(AUIInteractionLiveInfoModel *)model;
 
-@property (weak, nonatomic) id<AUILiveRoomAnchorPrestartViewDelegate> delegate;
-
-- (void)updateLayoutRotated:(BOOL)rotated;
+- (void)restore;
 
 @end
 

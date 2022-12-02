@@ -8,14 +8,13 @@
 #import "AUILiveRoomRtcPull.h"
 #import "AUIInteractionLiveSDKHeader.h"
 #import "AUIFoundation.h"
-#import "AUILiveBlockButton.h"
 #import <Masonry/Masonry.h>
 
 @interface AUILiveRoomRtcPull () <AliLivePlayerDelegate>
 
 @property (strong, nonatomic) AlivcLivePlayer *player;
 
-@property (strong, nonatomic) AUILiveBlockButton *infoButton;
+@property (strong, nonatomic) AVBlockButton *infoButton;
 
 @end
 
@@ -26,15 +25,17 @@
 - (AUILiveRoomLiveDisplayView *)displayView {
     if (!_displayView) {
         _displayView = [[AUILiveRoomLiveDisplayView alloc] initWithFrame:CGRectZero];
+        _displayView.showLoadingIndicator = NO;
+        _displayView.loadingText = @"连接中，请耐心等待";
     }
     return _displayView;
 }
 
-- (AUILiveBlockButton *)infoButton {
+- (AVBlockButton *)infoButton {
     if (!_infoButton) {
-        _infoButton = [[AUILiveBlockButton alloc] initWithFrame:self.displayView.bounds];
-        [_infoButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-        _infoButton.titleLabel.font = AVGetRegularFont(10);
+        _infoButton = [[AVBlockButton alloc] initWithFrame:self.displayView.bounds];
+        [_infoButton setTitleColor:AUIFoundationColor(@"text_weak") forState:UIControlStateNormal];
+        _infoButton.titleLabel.font = AVGetRegularFont(12);
         _infoButton.titleLabel.numberOfLines = 0;
         _infoButton.titleLabel.textAlignment = NSTextAlignmentCenter;
         [self.displayView addSubview:_infoButton];
@@ -43,7 +44,8 @@
         }];
         
         __weak typeof(self) weakSelf = self;
-        _infoButton.clickBlock = ^(AUILiveBlockButton * _Nonnull sender) {
+        _infoButton.clickBlock = ^(AVBlockButton * _Nonnull sender) {
+            weakSelf.infoButton.hidden = YES;
             [weakSelf start];
         };
     }
@@ -54,24 +56,22 @@
 
 - (void)prepare {
     AlivcLivePlayConfig *playConfig = [[AlivcLivePlayConfig alloc] init];
-    playConfig.renderMode = AlivcLivePlayRenderModeFill;
+    playConfig.renderMode = AlivcLivePlayRenderModeCrop;
     
     _player = [[AlivcLivePlayer alloc] init];
     [_player setLivePlayerDelegate:self];
     [_player setPlayView:self.displayView.renderView  playCofig:playConfig];
-    self.displayView.nickName = self.pullInfo.userNick;
 }
 
 - (BOOL)start {
-    self.infoButton.hidden = NO;
-    [self.infoButton setTitle:@"连接中" forState:UIControlStateNormal];
-    self.infoButton.enabled = NO;
     [_player stopPlay];
-    if (self.pullInfo.rtcPullUrl.length > 0) {
-        [_player startPlayWithURL:self.pullInfo.rtcPullUrl];
+    if (self.joinInfo.rtcPullUrl.length > 0) {
+        [_player startPlayWithURL:self.joinInfo.rtcPullUrl];
+        [self.displayView startLoading];
         return YES;
     }
-    [AVAlertController show:@"播放失败，缺少播放地址"];
+    self.infoButton.hidden = NO;
+    [self.infoButton setTitle:@"连接失败" forState:UIControlStateNormal];
     return NO;
 }
 
@@ -90,26 +90,26 @@
         } else if (code == AlivcLivePlayErrorStreamStopped) {
             title = [NSString stringWithFormat:@"播放流已停止\n点击重试？"];
         }
-        self.infoButton.hidden = NO;
         [self.infoButton setTitle:title forState:UIControlStateNormal];
-        self.infoButton.enabled = YES;
+        self.infoButton.hidden = NO;
+
         [self.player stopPlay];
-        
         if (self.onPlayErrorBlock) {
             self.onPlayErrorBlock();
         }
+        [self.displayView endLoading];
     });
 }
 
 - (void)onPlayStarted:(AlivcLivePlayer *)player {
     dispatch_async(dispatch_get_main_queue(), ^{
-        self.infoButton.hidden = YES;
+        [self.displayView endLoading];
     });
 }
 
 - (void)onPlayStoped:(AlivcLivePlayer *)player {
     dispatch_async(dispatch_get_main_queue(), ^{
-        self.infoButton.hidden = YES;
+        [self.displayView endLoading];
     });
 }
 

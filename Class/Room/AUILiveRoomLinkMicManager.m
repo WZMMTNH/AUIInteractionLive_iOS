@@ -39,12 +39,14 @@
     self.applyList = [NSMutableArray array];
     self.joinList = [NSMutableArray array];
     self.joiningList = [NSMutableArray array];
-    [self.roomManager.liveInfoModel.link_info.linkMicList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicPullInfo * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+    [self.roomManager.joinList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicJoinInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([obj.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id]) {
+            self.livePusher.isMute = !obj.micOpened;
+            self.livePusher.isPause = !obj.cameraOpened;
             return;
         }
         AUILiveRoomRtcPull *pull = [[AUILiveRoomRtcPull alloc] init];
-        pull.pullInfo = obj;
+        pull.joinInfo = obj;
         [self.joinList addObject:pull];
     }];
 }
@@ -52,11 +54,15 @@
 - (void)prepareLivePusher {
     [super prepareLivePusher];
     
-    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        [obj prepare];
-        [self.displayView addDisplayView:obj.displayView];
+    self.livePusher.displayView.isAudioOff = self.livePusher.isMute;
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull pull, NSUInteger idx, BOOL * _Nonnull stop) {
+        [pull prepare];
+        pull.displayView.isAnchor = [pull.joinInfo.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id];
+        pull.displayView.nickName = [pull.joinInfo.userId isEqualToString:AUIInteractionAccountManager.me.userId] ? @"我" : pull.joinInfo.userNick;
+        pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+        [self.displayLayoutView addDisplayView:pull.displayView];
     }];
-    [self.displayView layoutAll];
+    [self.displayLayoutView layoutAll];
 }
 
 - (void)startLivePusher {
@@ -73,13 +79,26 @@
     
     [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         [obj destory];
-        [self.displayView removeDisplayView:obj.displayView];
+        [self.displayLayoutView removeDisplayView:obj.displayView];
     }];
-    [self.displayView layoutAll];
+    [self.displayLayoutView layoutAll];
+}
+
+- (void)reportLinkMicJoinList:(nullable void (^)(BOOL))completed {
+    NSMutableArray *array = [NSMutableArray array];
+    AUIInteractionLiveLinkMicJoinInfoModel *anchorJoinInfo = [[AUIInteractionLiveLinkMicJoinInfoModel alloc] init:AUIInteractionAccountManager.me.userId userNick:AUIInteractionAccountManager.me.nickName userAvatar:AUIInteractionAccountManager.me.avatar rtcPullUrl:self.roomManager.liveInfoModel.link_info.rtc_pull_url];
+    anchorJoinInfo.cameraOpened = !self.livePusher.isPause;
+    anchorJoinInfo.micOpened = !self.livePusher.isMute;
+    [array addObject:anchorJoinInfo];
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        [array addObject:obj.joinInfo];
+    }];
+    
+    [self.roomManager updateLinkMicJoinList:array completed:completed];
 }
 
 - (BOOL)checkCanLinkMic {
-    return self.joinList.count + self.joiningList.count < 4;
+    return self.joinList.count < MAX_LINK_MIC_COUNT - 1;
 }
 
 - (void)receiveApplyLinkMic:(AUIInteractionLiveUser *)sender completed:(nullable void(^)(BOOL))completed {
@@ -91,7 +110,7 @@
     }
     __block BOOL find = NO;
     [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj.pullInfo.userId isEqualToString:sender.userId]) {
+        if ([obj.joinInfo.userId isEqualToString:sender.userId]) {
             find = YES;
             *stop = YES;
         }
@@ -104,6 +123,9 @@
         }];
         if (!find) {
             [self.applyList addObject:sender];
+            if (self.applyListChangedBlock) {
+                self.applyListChangedBlock(self);
+            }
             __block AUIInteractionLiveUser *joiningUser = nil;
             [self.joiningList enumerateObjectsUsingBlock:^(AUIInteractionLiveUser * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                 if ([obj.userId isEqualToString:sender.userId]) {
@@ -120,6 +142,53 @@
             return;
         }
     }
+    if (completed) {
+        completed(NO);
+    }
+}
+
+- (void)receiveCancelApplyLinkMic:(AUIInteractionLiveUser *)sender completed:(nullable void(^)(BOOL))completed {
+    if (!self.isLiving) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    // 从申请列表中移除
+    __block AUIInteractionLiveUser *find = nil;
+    [self.applyList enumerateObjectsUsingBlock:^(AUIInteractionLiveUser * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.userId isEqualToString:sender.userId]) {
+            find = obj;
+            *stop = YES;
+        }
+    }];
+
+    if (find) {
+        [self.applyList removeObject:find];
+        if (self.applyListChangedBlock) {
+            self.applyListChangedBlock(self);
+        }
+        if (completed) {
+            completed(YES);
+        }
+        return;
+    }
+    
+    // 从等待上麦列表中移除
+    [self.joiningList enumerateObjectsUsingBlock:^(AUIInteractionLiveUser * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.userId isEqualToString:sender.userId]) {
+            find = obj;
+            *stop = YES;
+        }
+    }];
+    if (find) {
+        [self.joiningList removeObject:find];
+        if (completed) {
+            completed(YES);
+        }
+    }
+    
     if (completed) {
         completed(NO);
     }
@@ -147,6 +216,9 @@
         [self.roomManager sendResponseLinkMic:find.userId agree:agree pullUrl:self.roomManager.liveInfoModel.link_info.rtc_pull_url completed:^(BOOL success) {
             if (success) {
                 [weakSelf.applyList removeObject:find];
+                if (weakSelf.applyListChangedBlock) {
+                    weakSelf.applyListChangedBlock(weakSelf);
+                }
                 if (agree) {
                     __block AUIInteractionLiveUser *joiningUser = nil;
                     [weakSelf.joiningList enumerateObjectsUsingBlock:^(AUIInteractionLiveUser * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
@@ -181,7 +253,7 @@
     }
     __block AUILiveRoomRtcPull *find = nil;
     [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj.pullInfo.userId isEqualToString:uid]) {
+        if ([obj.joinInfo.userId isEqualToString:uid]) {
             find = obj;
             *stop = YES;
         }
@@ -205,7 +277,7 @@
 }
 
 // 收到观众上麦
-- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicPullInfo *)linkMicUserInfo completed:(nullable void(^)(BOOL))completed {
+- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicJoinInfoModel *)joinInfo completed:(nullable void(^)(BOOL))completed {
     if (!self.isLiving) {
         if (completed) {
             completed(NO);
@@ -214,14 +286,14 @@
     }
     __block AUILiveRoomRtcPull *pull = nil;
     [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj.pullInfo.userId isEqualToString:linkMicUserInfo.userId]) {
+        if ([obj.joinInfo.userId isEqualToString:joinInfo.userId]) {
             pull = obj;
             *stop = YES;
         }
     }];
     if (!pull) {
         pull = [[AUILiveRoomRtcPull alloc] init];
-        pull.pullInfo = linkMicUserInfo;
+        pull.joinInfo = joinInfo;
         [self onJoinLinkMic:pull];
         if (completed) {
             completed(YES);
@@ -237,7 +309,7 @@
 - (void)receivedLeaveLinkMic:(NSString *)userId completed:(nullable void(^)(BOOL))completed {
     __block AUILiveRoomRtcPull *pull = nil;
     [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj.pullInfo.userId isEqualToString:userId]) {
+        if ([obj.joinInfo.userId isEqualToString:userId]) {
             pull = obj;
             *stop = YES;
         }
@@ -256,13 +328,16 @@
 
 - (void)onJoinLinkMic:(AUILiveRoomRtcPull *)pull {
     [pull prepare];
-    [self.displayView addDisplayView:pull.displayView];
-    [self.displayView layoutAll];
+    pull.displayView.isAnchor = [pull.joinInfo.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id];
+    pull.displayView.nickName = [pull.joinInfo.userId isEqualToString:AUIInteractionAccountManager.me.userId] ? @"我" : pull.joinInfo.userNick;
+    pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+    [self.displayLayoutView addDisplayView:pull.displayView];
+    [self.displayLayoutView layoutAll];
     [pull start];
     
     __block AUIInteractionLiveUser *joiningUser = nil;
     [self.joiningList enumerateObjectsUsingBlock:^(AUIInteractionLiveUser * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj.userId isEqualToString:pull.pullInfo.userId]) {
+        if ([obj.userId isEqualToString:pull.joinInfo.userId]) {
             joiningUser = obj;
             *stop = YES;
         }
@@ -273,54 +348,42 @@
     [self.joinList addObject:pull];
     [self mixStream];
     
-    NSMutableArray *array = [NSMutableArray array];
-    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        [array addObject:obj.pullInfo];
-    }];
-    AUIInteractionLiveLinkMicPullInfo *pullInfo = [[AUIInteractionLiveLinkMicPullInfo alloc] init:AUIInteractionAccountManager.me.userId userNick:AUIInteractionAccountManager.me.nickName rtcPullUrl:self.roomManager.liveInfoModel.link_info.rtc_pull_url];
-    [array insertObject:pullInfo atIndex:0];
-    [self.roomManager updateLinkMicList:array completed:nil];
+    [self reportLinkMicJoinList:nil];
 }
 
 - (void)onLeaveLinkMic:(AUILiveRoomRtcPull *)pull {
-    [self.displayView removeDisplayView:pull.displayView];
-    [self.displayView layoutAll];
+    [self.displayLayoutView removeDisplayView:pull.displayView];
+    [self.displayLayoutView layoutAll];
     [pull destory];
     [self.joinList removeObject:pull];
     [self mixStream];
     
-    NSMutableArray *array = [NSMutableArray array];
-    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        [array addObject:obj.pullInfo];
-    }];
-    AUIInteractionLiveLinkMicPullInfo *pullInfo = [[AUIInteractionLiveLinkMicPullInfo alloc] init:AUIInteractionAccountManager.me.userId userNick:AUIInteractionAccountManager.me.nickName rtcPullUrl:self.roomManager.liveInfoModel.link_info.rtc_pull_url];
-    [array insertObject:pullInfo atIndex:0];
-    [self.roomManager updateLinkMicList:array completed:nil];
+    [self reportLinkMicJoinList:nil];
 }
 
 - (void)mixStream {
     AlivcLiveTranscodingConfig *liveTranscodingConfig = nil;
     if (self.joinList.count > 0) {
         NSMutableArray *array = [NSMutableArray array];
-        CGRect rect = [self.displayView renderRect:self.livePusher.displayView];
+        CGRect rect = [self.displayLayoutView renderRect:self.livePusher.displayView];
         AlivcLiveMixStream *anchorStream = [[AlivcLiveMixStream alloc] init];
         anchorStream.userId = self.livePusher.liveInfoModel.anchor_id;
         anchorStream.x = rect.origin.x;
         anchorStream.y = rect.origin.y;
         anchorStream.width = rect.size.width;
         anchorStream.height = rect.size.height;
-        anchorStream.zOrder = 1;
+        anchorStream.zOrder = (int)[self.displayLayoutView.displayViewList indexOfObject:self.livePusher.displayView] + 1;
         [array addObject:anchorStream];
         
         [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            CGRect rect = [self.displayView renderRect:obj.displayView];
+            CGRect rect = [self.displayLayoutView renderRect:obj.displayView];
             AlivcLiveMixStream *audienceStream = [[AlivcLiveMixStream alloc] init];
-            audienceStream.userId = obj.pullInfo.userId;
+            audienceStream.userId = obj.joinInfo.userId;
             audienceStream.x = rect.origin.x;
             audienceStream.y = rect.origin.y;
             audienceStream.width = rect.size.width;
             audienceStream.height = rect.size.height;
-            audienceStream.zOrder = (int)idx + 2;
+            audienceStream.zOrder = (int)[self.displayLayoutView.displayViewList indexOfObject:obj.displayView] + 1;
             [array addObject:audienceStream];
         }];
         liveTranscodingConfig = [[AlivcLiveTranscodingConfig alloc] init];
@@ -328,6 +391,88 @@
     }
     
     [self.livePusher setLiveMixTranscodingConfig:liveTranscodingConfig];
+}
+
+- (void)receivedMicOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || [sender.userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    __block AUILiveRoomRtcPull *pull = nil;
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.joinInfo.userId isEqualToString:sender.userId]) {
+            pull = obj;
+            *stop = YES;
+        }
+    }];
+    if (pull) {
+        pull.joinInfo.micOpened = opened;
+        pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+        [self reportLinkMicJoinList:nil];
+    }
+    if (completed) {
+        completed(pull != nil);
+    }
+}
+
+- (void)receivedCameraOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || [sender.userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    __block AUILiveRoomRtcPull *pull = nil;
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.joinInfo.userId isEqualToString:sender.userId]) {
+            pull = obj;
+            *stop = YES;
+        }
+    }];
+    if (pull) {
+        pull.joinInfo.cameraOpened = opened;
+        [self reportLinkMicJoinList:nil];
+    }
+    if (completed) {
+        completed(pull != nil);
+    }
+}
+
+- (void)openMic:(NSString *)uid needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isLiving) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    [self.roomManager sendOpenMic:uid needOpen:needOpen completed:completed];
+}
+
+- (void)openCamera:(NSString *)uid needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isLiving) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    [self.roomManager sendOpenCamera:uid needOpen:needOpen completed:completed];
+}
+
+- (BOOL)openLivePusherMic:(BOOL)open {
+    BOOL ret = [super openLivePusherMic:open];
+    self.livePusher.displayView.isAudioOff = !ret;
+    [self.roomManager sendMicOpened:ret completed:nil];
+    [self reportLinkMicJoinList:nil];
+    return ret;
+}
+
+- (BOOL)openLivePusherCamera:(BOOL)open {
+    BOOL ret = [super openLivePusherCamera:open];
+    [self.roomManager sendCameraOpened:ret completed:nil];
+    [self reportLinkMicJoinList:nil];
+    return ret;
 }
 
 @end
@@ -342,26 +487,42 @@
 
 @property (strong, nonatomic) AUILiveRoomPusher *livePusher;
 @property (strong, nonatomic) NSMutableArray<AUILiveRoomRtcPull *> *joinList; // 当前上麦列表
+@property (assign, nonatomic) NSUInteger displayIndex;
+@property (assign, nonatomic) BOOL micOpened;
+@property (assign, nonatomic) BOOL cameraOpened;
+
+@property (assign, nonatomic) BOOL isApplyingLinkMic;
+@property (assign, nonatomic) BOOL needToNotifyApplyNotResponse;
 
 @end
 
 
 @implementation AUILiveRoomLinkMicManagerAudience
 
-- (void)setupPullPlayer {
-    [self setupPullPlayerWithLinkMicList:self.roomManager.liveInfoModel.link_info.linkMicList];
+- (NSArray<AUILiveRoomRtcPull *> *)currentJoinList {
+    return [self.joinList copy];
 }
 
-- (void)setupPullPlayerWithLinkMicList:(NSArray<AUIInteractionLiveLinkMicPullInfo *> *)linkMicList {
+- (void)setupPullPlayer {
+    [self setupPullPlayerWithRemoteJoinList:self.roomManager.joinList];
+}
+
+- (void)setupPullPlayerWithRemoteJoinList:(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)remoteJoinList {
     self.joinList = [NSMutableArray array];
+    self.displayIndex = 0;
+    self.micOpened = YES;
+    self.cameraOpened = YES;
     __block BOOL find = NO;
-    [linkMicList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicPullInfo * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+    [remoteJoinList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicJoinInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([obj.userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
             find = YES;
+            self.displayIndex = idx;
+            self.micOpened = obj.micOpened;
+            self.cameraOpened = obj.cameraOpened;
             return;
         }
         AUILiveRoomRtcPull *pull = [[AUILiveRoomRtcPull alloc] init];
-        pull.pullInfo = obj;
+        pull.joinInfo = obj;
         [self.joinList addObject:pull];
     }];
     
@@ -379,18 +540,8 @@
     self.livePusher = [[AUILiveRoomPusher alloc] init];
     self.livePusher.liveInfoModel = self.roomManager.liveInfoModel;
     self.livePusher.beautyController = self.roomVC ? [[AUILiveRoomBeautyController alloc] initWithPresentView:self.roomVC.view contextMode:YES] : nil;
-//    self.livePusher.onStartedBlock = self.onStartedBlock;
-//    self.livePusher.onPausedBlock = self.onPausedBlock;
-//    self.livePusher.onResumedBlock = self.onResumedBlock;
-//    self.livePusher.onRestartBlock = self.onRestartBlock;
-//    self.livePusher.onConnectionPoorBlock = self.onConnectionPoorBlock;
-//    self.livePusher.onConnectionLostBlock = self.onConnectionLostBlock;
-//    self.livePusher.onConnectionRecoveryBlock = self.onConnectionRecoveryBlock;
-//    self.livePusher.onConnectErrorBlock = self.onConnectErrorBlock;
-//    self.livePusher.onReconnectStartBlock = self.onReconnectStartBlock;
-//    self.livePusher.onReconnectSuccessBlock = self.onReconnectSuccessBlock;
-//    self.livePusher.onReconnectErrorBlock = self.onReconnectErrorBlock;
-//
+    self.livePusher.isMute = !self.micOpened;
+    self.livePusher.isPause = !self.cameraOpened;
 }
 
 - (BOOL)isJoinedLinkMic {
@@ -400,13 +551,20 @@
 - (void)preparePullPlayer {
     if ([self isJoinedLinkMic]) {
         
-        [self.displayView addDisplayView:self.livePusher.displayView];
-        [self.livePusher prepare];
-        [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            [obj prepare];
-            [self.displayView addDisplayView:obj.displayView];
+        [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull pull, NSUInteger idx, BOOL * _Nonnull stop) {
+            [pull prepare];
+            pull.displayView.isAnchor = [pull.joinInfo.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id];
+            pull.displayView.nickName = [pull.joinInfo.userId isEqualToString:AUIInteractionAccountManager.me.userId] ? @"我" : pull.joinInfo.userNick;
+            pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+            [self.displayLayoutView addDisplayView:pull.displayView];
         }];
-        [self.displayView layoutAll];
+        
+        self.livePusher.displayView.showLoadingIndicator = NO;
+        self.livePusher.displayView.isAudioOff = self.livePusher.isMute;
+        [self.displayLayoutView insertDisplayView:self.livePusher.displayView atIndex:self.displayIndex];
+        [self.livePusher prepare];
+        
+        [self.displayLayoutView layoutAll];
     }
     else {
         [super preparePullPlayer];
@@ -434,13 +592,13 @@
 - (void)destoryPullPlayerByKick:(BOOL)byKickout{
     if ([self isJoinedLinkMic]) {
         [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            [self.displayView removeDisplayView:obj.displayView];
+            [self.displayLayoutView removeDisplayView:obj.displayView];
             [obj destory];
         }];
-        [self.displayView removeDisplayView:self.livePusher.displayView];
+        [self.displayLayoutView removeDisplayView:self.livePusher.displayView];
         [self.livePusher destory];
         self.livePusher = nil;
-        [self.displayView layoutAll];
+        [self.displayLayoutView layoutAll];
         self.isLiving = NO;
         [self.roomManager sendLeaveLinkMic:byKickout completed:nil];
     }
@@ -450,39 +608,88 @@
 }
 
 - (void)applyLinkMic:(void (^)(BOOL))completed {
-    if ([self isJoinedLinkMic] || !self.isLiving) {
+    if ([self isJoinedLinkMic] || !self.isLiving || self.isApplyingLinkMic) {
         if (completed) {
             completed(NO);
         }
         return;
     }
-    [self.roomManager sendApplyLinkMic:self.roomManager.liveInfoModel.anchor_id completed:completed];
+    
+    __weak typeof(self) weakSelf = self;
+    [self.roomManager sendApplyLinkMic:self.roomManager.liveInfoModel.anchor_id completed:^(BOOL success) {
+        if (success) {
+            weakSelf.isApplyingLinkMic = YES;
+            [weakSelf startNotifyApplyNotResponse];
+        }
+        if (completed) {
+            completed(success);
+        }
+    }];
 }
 
-- (void)receivedResponseLinkMic:(NSString *)userId agree:(BOOL)agree completed:(nullable void (^)(BOOL))completed {
+- (void)cancelApplyLinkMic:(void (^)(BOOL))completed {
+    if ([self isJoinedLinkMic] || !self.isLiving || !self.isApplyingLinkMic) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    self.isApplyingLinkMic = NO;
+    [self cancelNotifyApplyNotResponse];
+    
+    [self.roomManager sendCancelApplyLinkMic:self.roomManager.liveInfoModel.anchor_id completed:nil];
+    if (completed) {
+        completed(YES);
+    }
+}
+
+// 收到同意上麦
+- (void)receivedAgreeToLinkMic:(NSString *)userId willGiveUp:(BOOL)giveUp completed:(nullable void (^)(BOOL success, BOOL giveUp, NSString *message))completed {
+    if (!self.isLiving || ![userId isEqualToString:self.roomManager.liveInfoModel.anchor_id]) {
+        if (completed) {
+            completed(NO, NO, @"当前状态不对");
+        }
+        return;
+    }
+    
+    self.isApplyingLinkMic = NO;
+    [self cancelNotifyApplyNotResponse];
+    
+    if (giveUp) {
+        [self.roomManager sendCancelApplyLinkMic:self.roomManager.liveInfoModel.anchor_id completed:nil];
+        if (completed) {
+            completed(YES, YES, nil);
+        }
+        return;
+    }
+    
+    [self joinLinkMic:^(BOOL success, NSString *message) {
+        if (completed) {
+            completed(success, NO, message);
+        }
+    }];
+}
+
+// 收到不同意上麦
+- (void)receivedDisagreeToLinkMic:(NSString *)userId completed:(nullable void (^)(BOOL))completed {
     if (!self.isLiving || ![userId isEqualToString:self.roomManager.liveInfoModel.anchor_id]) {
         if (completed) {
             completed(NO);
         }
         return;
     }
-    if (agree) {
-        [self joinLinkMic:^(BOOL success) {
-            if (completed) {
-                completed(success);
-            }
-        }];
-    }
-    else {
-        if (completed) {
-            completed(NO);
-        }
+    
+    self.isApplyingLinkMic = NO;
+    [self cancelNotifyApplyNotResponse];
+    
+    if (completed) {
+        completed(YES);
     }
 }
 
-
 // 收到其他观众上麦
-- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicPullInfo *)linkMicUserInfo completed:(nullable void (^)(BOOL))completed {
+- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicJoinInfoModel *)joinInfo completed:(nullable void (^)(BOOL))completed {
     if (!self.isLiving) {
         if (completed) {
             completed(NO);
@@ -490,7 +697,7 @@
         return;
     }
     if ([self isJoinedLinkMic]) {
-        if ([linkMicUserInfo.userId isEqual:AUIInteractionAccountManager.me.userId]) {
+        if ([joinInfo.userId isEqual:AUIInteractionAccountManager.me.userId]) {
             if (completed) {
                 completed(YES);
             }
@@ -498,19 +705,22 @@
         }
         __block AUILiveRoomRtcPull *pull = nil;
         [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            if ([obj.pullInfo.userId isEqualToString:linkMicUserInfo.userId]) {
+            if ([obj.joinInfo.userId isEqualToString:joinInfo.userId]) {
                 pull = obj;
                 *stop = YES;
             }
         }];
         if (!pull) {
             pull = [[AUILiveRoomRtcPull alloc] init];
-            pull.pullInfo = linkMicUserInfo;
+            pull.joinInfo = joinInfo;
             [self.joinList addObject:pull];
             
             [pull prepare];
-            [self.displayView addDisplayView:pull.displayView];
-            [self.displayView layoutAll];
+            pull.displayView.isAnchor = [pull.joinInfo.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id];
+            pull.displayView.nickName = [pull.joinInfo.userId isEqualToString:AUIInteractionAccountManager.me.userId] ? @"我" : pull.joinInfo.userNick;
+            pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+            [self.displayLayoutView addDisplayView:pull.displayView];
+            [self.displayLayoutView layoutAll];
             [pull start];
         }
         
@@ -525,7 +735,7 @@
     }
 }
 
-// 收到其他观众下麦
+// 收到其他观众下麦/自己被踢下麦
 - (void)receivedLeaveLinkMic:(NSString *)userId completed:(nullable void (^)(BOOL))completed {
     if (!self.isLiving) {
         if (completed) {
@@ -542,14 +752,14 @@
         
         __block AUILiveRoomRtcPull *pull = nil;
         [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            if ([obj.pullInfo.userId isEqualToString:userId]) {
+            if ([obj.joinInfo.userId isEqualToString:userId]) {
                 pull = obj;
                 *stop = YES;
             }
         }];
         if (pull) {
-            [self.displayView removeDisplayView:pull.displayView];
-            [self.displayView layoutAll];
+            [self.displayLayoutView removeDisplayView:pull.displayView];
+            [self.displayLayoutView layoutAll];
                     
             [pull destory];
             [self.joinList removeObject:pull];
@@ -566,38 +776,50 @@
 }
 
 // 上麦
-- (void)joinLinkMic:(void(^)(BOOL))completed; {
+- (void)joinLinkMic:(void(^)(BOOL, NSString *))completed; {
     if (!self.isLiving || [self isJoinedLinkMic]) {
         if (completed) {
-            completed(NO);
+            completed(NO, @"当前状态不对");
         }
         return;
     }
     
     __weak typeof(self) weakSelf = self;
-    [self.roomManager queryLinkMicList:^(NSArray<AUIInteractionLiveLinkMicPullInfo *> * _Nullable linkMicList) {
-        if (!linkMicList) {
+    [self.roomManager queryLinkMicJoinList:^(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> * _Nullable remoteJoinList) {
+        if (!remoteJoinList) {
             if (completed) {
-                completed(NO);
+                completed(NO, @"无法获取当前上麦列表，上麦失败");
             }
             return;
         }
-        AUIInteractionLiveLinkMicPullInfo *my = [[AUIInteractionLiveLinkMicPullInfo alloc] init:AUIInteractionAccountManager.me.userId userNick:@"我" rtcPullUrl:weakSelf.roomManager.liveInfoModel.link_info.rtc_pull_url];
-        NSMutableArray<AUIInteractionLiveLinkMicPullInfo *> *list = [NSMutableArray arrayWithArray:linkMicList];
+        
+        if (remoteJoinList.count >= MAX_LINK_MIC_COUNT) {
+            if (completed) {
+                completed(NO, @"当前连麦人数已经超过最大限制，连麦失败");
+            }
+            return;
+        }
+        
+        AUIInteractionLiveLinkMicJoinInfoModel *my = [[AUIInteractionLiveLinkMicJoinInfoModel alloc] init:AUIInteractionAccountManager.me.userId userNick:AUIInteractionAccountManager.me.nickName userAvatar:AUIInteractionAccountManager.me.avatar rtcPullUrl:weakSelf.roomManager.liveInfoModel.link_info.rtc_pull_url];
+        NSMutableArray<AUIInteractionLiveLinkMicJoinInfoModel *> *list = [NSMutableArray arrayWithArray:remoteJoinList];
         [list addObject:my];
         [weakSelf destoryPullPlayer];
-        [weakSelf setupPullPlayerWithLinkMicList:list];
+        [weakSelf setupPullPlayerWithRemoteJoinList:list];
         [weakSelf preparePullPlayer];
         [weakSelf startPullPlayer];
         
         [weakSelf.roomManager sendJoinLinkMic:my.rtcPullUrl completed:nil];
         if (completed) {
-            completed(YES);
+            completed(YES, nil);
         }
     }];
 }
 
 // 下麦
+- (void)leaveLinkMic:(void(^)(BOOL))completed; {
+    [self leaveLinkMic:NO completed:completed];
+}
+
 - (void)leaveLinkMic:(BOOL)byKickout completed:(void(^)(BOOL))completed; {
     if (!self.isLiving || ![self isJoinedLinkMic]) {
         if (completed) {
@@ -607,7 +829,7 @@
     }
     
     [self destoryPullPlayerByKick:byKickout];
-    [self setupPullPlayerWithLinkMicList:nil];
+    [self setupPullPlayerWithRemoteJoinList:nil];
     [self preparePullPlayer];
     [self startPullPlayer];
     if (completed) {
@@ -615,13 +837,95 @@
     }
 }
 
-// 下麦
-- (void)leaveLinkMic:(void(^)(BOOL))completed; {
-    [self leaveLinkMic:NO completed:completed];
+- (void)receivedMicOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || !self.isJoinedLinkMic || [sender.userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    __block AUILiveRoomRtcPull *pull = nil;
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.joinInfo.userId isEqualToString:sender.userId]) {
+            pull = obj;
+            *stop = YES;
+        }
+    }];
+    if (pull) {
+        pull.joinInfo.micOpened = opened;
+        pull.displayView.isAudioOff = !pull.joinInfo.micOpened;
+    }
+    if (completed) {
+        completed(pull != nil);
+    }
 }
 
-- (NSArray<AUILiveRoomRtcPull *> *)currentJoinList {
-    return [self.joinList copy];
+- (void)receivedCameraOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || !self.isJoinedLinkMic || [sender.userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    __block AUILiveRoomRtcPull *pull = nil;
+    [self.joinList enumerateObjectsUsingBlock:^(AUILiveRoomRtcPull * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj.joinInfo.userId isEqualToString:sender.userId]) {
+            pull = obj;
+            *stop = YES;
+        }
+    }];
+    if (pull) {
+        pull.joinInfo.cameraOpened = opened;
+    }
+    if (completed) {
+        completed(pull != nil);
+    }
+}
+
+- (void)receivedNeedOpenMic:(AUIInteractionLiveUser *)sender needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || !self.isJoinedLinkMic || ![sender.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    [self.livePusher mute:!needOpen];
+    [self.roomManager sendMicOpened:!self.livePusher.isMute completed:completed];
+}
+
+- (void)receivedNeedOpenCamera:(AUIInteractionLiveUser *)sender needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isLiving || !self.isJoinedLinkMic || ![sender.userId isEqualToString:self.roomManager.liveInfoModel.anchor_id]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    [self.livePusher pause:!needOpen];
+    [self.roomManager sendMicOpened:!self.livePusher.isPause completed:completed];
+}
+
+// 定时任务
+
+- (void)startNotifyApplyNotResponse {
+    [self cancelNotifyApplyNotResponse];
+    [self performSelector:@selector(timeToNotifyApplyNotResponse) withObject:nil afterDelay:30];
+    self.needToNotifyApplyNotResponse = YES;
+}
+
+- (void)cancelNotifyApplyNotResponse {
+    self.needToNotifyApplyNotResponse = NO;
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(timeToNotifyApplyNotResponse) object:nil];
+}
+
+- (void)timeToNotifyApplyNotResponse {
+    if (self.needToNotifyApplyNotResponse) {
+        if (self.onNotifyApplyNotResponse) {
+            self.onNotifyApplyNotResponse(self);
+        }
+    }
 }
 
 @end

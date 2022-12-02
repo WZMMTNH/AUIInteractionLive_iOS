@@ -6,15 +6,12 @@
 //
 
 #import "LiveViewController.h"
+#import "AUIInteractionLiveMacro.h"
+#import "LoginViewController.h"
 #import "AUIInteractionLiveListViewController.h"
-#import "AUIInteractionLiveService.h"
-#import "AUIFoundation.h"
-#import "AUIInteractionAccountManager.h"
-#import "AUIInteractionLiveManager.h"
+#import "AUIInteractionLiveActionManager.h"
 
 @interface LiveViewController ()
-
-@property (nonatomic, strong) UIButton *modifyUserBtn;
 
 @end
 
@@ -25,110 +22,102 @@
     // Do any additional setup after loading the view.
     self.headerView.hidden = YES;
     
-    [self.class loadCurrentUser];
+    AVBlockButton *logout = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, self.view.av_height - AVSafeBottom - 44, self.view.av_width - 24 * 2, 44)];
+    logout.layer.cornerRadius = 22;
+    logout.titleLabel.font = AVGetRegularFont(16);
+    [logout setTitle:@"登出" forState:UIControlStateNormal];
+    [logout setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+    [logout setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
+    [logout addTarget:self action:@selector(onLogoutClicked:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:logout];
     
-    UIButton *modifyUser = [[UIButton alloc] initWithFrame:CGRectMake(24, 200, 100, 44)];
-    modifyUser.backgroundColor = UIColor.orangeColor;
-    [modifyUser setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    [modifyUser addTarget:self action:@selector(onModifyUserClicked:) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:modifyUser];
-    self.modifyUserBtn = modifyUser;
-    [self updateModifyUserButtonTitle];
-    
-    UIButton *liveList = [[UIButton alloc] initWithFrame:CGRectMake(24, modifyUser.av_bottom + 24, 100, 44)];
-    liveList.backgroundColor = UIColor.orangeColor;
-    [liveList setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    [liveList setTitle:@"直播间" forState:UIControlStateNormal];
+    AVBlockButton *liveList = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, logout.av_top - 44 - 24, self.view.av_width - 24 * 2, 44)];
+    liveList.layer.cornerRadius = 22;
+    liveList.titleLabel.font = AVGetRegularFont(16);
+    [liveList setTitle:@"直播间列表" forState:UIControlStateNormal];
+    [liveList setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+    [liveList setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
     [liveList addTarget:self action:@selector(onLiveListClicked:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:liveList];
-}
-
-- (void)updateModifyUserButtonTitle {
-    [self.modifyUserBtn setTitle:[self.class isLogin] ? @"登出" : @"登录" forState:UIControlStateNormal];
-}
-
-- (void)onModifyUserClicked:(UIButton *)sender {
-    if ([self.class isLogin]) {
-        [self onLogout];
+    
+    // 暂不开放切换主题模式
+//    AVBlockButton *theme = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, liveList.av_top - 44 - 24, self.view.av_width - 24 * 2, 44)];
+//    theme.layer.cornerRadius = 22;
+//    theme.titleLabel.font = AVGetRegularFont(16);
+//    [theme setTitle:@"切换主题" forState:UIControlStateNormal];
+//    [theme setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+//    [theme setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
+//    [theme addTarget:self action:@selector(changeTheme:) forControlEvents:UIControlEventTouchUpInside];
+//    [self.view addSubview:theme];
+    
+    AUIInteractionLiveActionManager.defaultManager.followAnchorAction = ^(AUIInteractionLiveUser * _Nonnull anchor, BOOL isFollowed, UIViewController * _Nonnull roomVC, onActionCompleted  _Nonnull completed) {
+        // 这里调用关注接口，然后返回结果
+        if (completed) {
+            completed(YES);
+        }
+    };
+    AUIInteractionLiveActionManager.defaultManager.openShare = ^(AUIInteractionLiveInfoModel * _Nonnull liveInfo, UIViewController * _Nonnull roomVC, onActionCompleted  _Nullable completed) {
+        // 这里打开分享面板
+        AVBaseControllPanel *panel = [[AVBaseControllPanel alloc] initWithFrame:CGRectMake(0, 0, roomVC.view.bounds.size.width, 0)];
+        panel.titleView.text = @"分享面板";
+        [panel showOnView:roomVC.view];
+    };
+    
+    if ([LoginViewController isLogin]) {
+        [self openLiveListVC:NO];
         return;
     }
     
-    [AVAlertController showInput:AUIInteractionAccountManager.me.nickName title:@"请输入用户昵称" message:@"用户昵称与Id一致" okTitle:nil cancelTitle:nil vc:nil onCompleted:^(NSString * _Nonnull input, BOOL isCancel) {
-        if (!isCancel) {
-            [self onLogin:input];
-        }
-    }];
+    [self openLoginVC:NO];
 }
 
-- (void)onLiveListClicked:(UIButton *)sender {
-    BOOL isLogin = [self.class isLogin];
-    if (!isLogin) {
-        [AVAlertController show:@"请先登录" vc:self];
-    }
+- (void)onLogoutClicked:(AVBlockButton *)sender {
+    [LoginViewController logout];
+    [self openLoginVC:YES];
+}
+
+- (void)onLiveListClicked:(AVBlockButton *)sender {
+    [self openLiveListVC:YES];
+}
+
+- (void)openLoginVC:(BOOL)animation {
+    LoginViewController *login = [LoginViewController new];
+    [self.navigationController pushViewController:login animated:animation];
     
-    
+    __weak typeof(self) weakSelf = self;
+    login.onLoginSuccessHandler = ^(LoginViewController * _Nonnull sender) {
+        [weakSelf openLiveListVC:YES];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [sender removeFromParentViewController];
+        });
+    };
+}
+
+- (void)openLiveListVC:(BOOL)animation {
     AUIInteractionLiveListViewController *roomListVC = [AUIInteractionLiveListViewController new];
+    __weak typeof(self) weakSelf = self;
+    roomListVC.onLoginTokenExpired = ^{
+        [AVAlertController showWithTitle:@"提示" message:@"登录已过期，请重新登录" needCancel:NO onCompleted:^(BOOL isCanced) {
+            [weakSelf.navigationController popToRootViewControllerAnimated:NO];
+            [LoginViewController logout];
+            [weakSelf openLoginVC:YES];
+        }];
+    };
     // 直播列表的展示需要使用导航控制器，否则页面间无法跳转，建议AVNavigationController
     if (self.navigationController) {
-        [self.navigationController pushViewController:roomListVC animated:YES];
+        [self.navigationController pushViewController:roomListVC animated:animation];
     }
     else {
         AVNavigationController *nav =[[AVNavigationController alloc]initWithRootViewController:roomListVC];
-        [self av_presentFullScreenViewController:nav animated:YES completion:nil];
+        [self av_presentFullScreenViewController:nav animated:animation completion:nil];
     }
 }
 
-- (void)onLogout {
-    [[AUIInteractionLiveManager defaultManager] logout];
-    AUIInteractionAccountManager.me.userId = @"";
-    AUIInteractionAccountManager.me.nickName = @"";
-    AUIInteractionAccountManager.me.token = @"";
-    [self.class saveCurrentUser];
-
-    [self updateModifyUserButtonTitle];
-    [AVAlertController show:@"已成功登出"];
+- (void)changeTheme:(AVBlockButton *)sender {
+    [AVAlertController showSheet:@[@"跟随系统", @"浅色模式", @"暗黑模式"] alertTitle:@"切换主题" message:nil cancelTitle:@"取消" vc:self onCompleted:^(NSInteger idx) {
+        AVTheme.currentMode = (AVThemeMode)idx;
+    }];
 }
 
-- (void)onLogin:(NSString *)uid {
-    if (uid.length > 0) {
-        [AUIInteractionLiveService requestWithPath:@"/api/v1/live/login" bodyDic:@{@"password":uid, @"username":uid} completionHandler:^(NSURLResponse * _Nonnull response, id  _Nonnull responseObject, NSError * _Nonnull error) {
-            if (!error) {
-                AUIInteractionAccountManager.me.userId = uid;
-                AUIInteractionAccountManager.me.nickName = uid;
-                AUIInteractionAccountManager.me.token = [responseObject objectForKey:@"token"];
-                [AVAlertController show:@"已成功登录"];
-                [self.class saveCurrentUser];
-                [self updateModifyUserButtonTitle];
-            }
-            else {
-                [AVAlertController show:@"登录失败"];
-            }
-        }];
-    }
-}
-
-
-+ (BOOL)isLogin {
-    return AUIInteractionAccountManager.me.userId.length > 0;
-}
-
-
-+ (void)loadCurrentUser {
-    NSString *userId = [[NSUserDefaults standardUserDefaults] objectForKey:@"my_user_id"];
-    NSString *nickName = [[NSUserDefaults standardUserDefaults] objectForKey:@"my_user_name"];
-    NSString *token = [[NSUserDefaults standardUserDefaults] objectForKey:@"my_user_token"];
-    if (userId.length > 0) {
-        AUIInteractionAccountManager.me.userId = userId;
-        AUIInteractionAccountManager.me.nickName = nickName ?: userId;
-        AUIInteractionAccountManager.me.token = token;
-    }
-}
-
-+ (void)saveCurrentUser {
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.userId forKey:@"my_user_id"];
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.nickName forKey:@"my_user_name"];
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.token forKey:@"my_user_token"];
-    [[NSUserDefaults standardUserDefaults] synchronize];
-}
 
 @end

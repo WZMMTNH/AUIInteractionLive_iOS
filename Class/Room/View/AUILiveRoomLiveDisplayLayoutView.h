@@ -13,15 +13,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, strong, readonly) UIView *renderView;
 @property (nonatomic, copy) NSString *nickName;
-
+@property (nonatomic, assign) BOOL isAnchor;
+@property (nonatomic, assign) BOOL isAudioOff;
 @property (nonatomic, copy) void (^onLayoutUpdated)(void);
+
+@property (nonatomic, assign) BOOL showLoadingIndicator;
+@property (nonatomic, copy) NSString *loadingText;
+- (void)startLoading;
+- (void)endLoading;
 
 @end
 
 @interface AUILiveRoomLiveDisplayLayoutView : UIView
 
-@property (nonatomic, assign) UIEdgeInsets contentAreaInsets;
 @property (nonatomic, assign) CGSize resolution;
+
+- (NSArray<AUILiveRoomLiveDisplayView *> *)displayViewList;
 
 - (CGRect)renderRect:(AUILiveRoomLiveDisplayView *)displayView;
 

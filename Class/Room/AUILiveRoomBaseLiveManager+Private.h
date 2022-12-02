@@ -10,7 +10,7 @@
 @interface AUILiveRoomBaseLiveManagerAnchor ()
 
 @property (strong, nonatomic) AUILiveRoomManager *roomManager;
-@property (nonatomic, strong) AUILiveRoomLiveDisplayLayoutView *displayView;
+@property (nonatomic, strong) AUILiveRoomLiveDisplayLayoutView *displayLayoutView;
 @property (strong, nonatomic) AUILiveRoomPusher *livePusher;
 @property (assign, nonatomic) BOOL isLiving;
 
@@ -20,7 +20,7 @@
 @interface AUILiveRoomBaseLiveManagerAudience ()
 
 @property (strong, nonatomic) AUILiveRoomManager *roomManager;
-@property (nonatomic, strong) AUILiveRoomLiveDisplayLayoutView *displayView;
+@property (nonatomic, strong) AUILiveRoomLiveDisplayLayoutView *displayLayoutView;
 @property (strong, nonatomic) AUILiveRoomCdnPull *cdnPull;
 @property (assign, nonatomic) BOOL isLiving;
 

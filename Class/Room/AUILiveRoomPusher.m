@@ -8,6 +8,7 @@
 #import "AUILiveRoomPusher.h"
 #import "AUIInteractionLiveSDKHeader.h"
 #import "AUIFoundation.h"
+#import "AUIInteractionLiveMacro.h"
 #import "AUIInteractionAccountManager.h"
 
 @interface AUILiveRoomPusher () <
@@ -27,20 +28,25 @@ AlivcLivePusherCustomDetectorDelegate
 
 @synthesize displayView = _displayView;
 
+- (void)dealloc {
+    NSLog(@"dealloc:AUILiveRoomPusher");
+}
+
 - (AUILiveRoomLiveDisplayView *)displayView {
     if (!_displayView) {
         _displayView = [[AUILiveRoomLiveDisplayView alloc] initWithFrame:CGRectZero];
-        _displayView.nickName = [self.liveInfoModel.anchor_id isEqualToString:AUIInteractionAccountManager.me.userId] ? @"主播" : AUIInteractionAccountManager.me.nickName;
+        _displayView.nickName = @"我";
+        _displayView.isAnchor = [self.liveInfoModel.anchor_id isEqualToString:AUIInteractionAccountManager.me.userId];
     }
     return _displayView;
 }
 
-+ (UIImage *)pauseImage {
-    static UIImage *_image = nil;
-    if (!_image) {
-        _image = [UIImage av_imageWithColor:UIColor.blackColor size:CGSizeMake(720, 1280)];
-    }
-    return _image;
++ (UIImage *)pushBlackImage {
+    return [UIImage av_imageWithColor:UIColor.blackColor size:CGSizeMake(720, 1280)];
+}
+
++ (UIImage *)pushPauseImage {
+    return AUIInteractionLiveGetCommonImage(@"ic_push_default.jpg");
 }
 
 #pragma mark - live pusher
@@ -48,10 +54,9 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)prepare {
     
     AlivcLivePushMode pushMode = AlivcLivePushBasicMode;
-    AlivcPusherPreviewDisplayMode displayMode = ALIVC_LIVE_PUSHER_PREVIEW_ASPECT_FIT;
+    AlivcPusherPreviewDisplayMode displayMode = ALIVC_LIVE_PUSHER_PREVIEW_ASPECT_FILL;
     if (self.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
         pushMode = AlivcLivePushInteractiveMode;
-        displayMode = ALIVC_LIVE_PUSHER_PREVIEW_ASPECT_FIT;
     }
     
     AlivcLivePushConfig *pushConfig = [[AlivcLivePushConfig alloc] init];
@@ -64,7 +69,7 @@ AlivcLivePusherCustomDetectorDelegate
     pushConfig.connectRetryInterval = 2000;
     pushConfig.orientation = AlivcLivePushOrientationPortrait;
     pushConfig.enableAutoResolution = YES;
-    pushConfig.pauseImg = [self.class pauseImage];
+    pushConfig.pauseImg = [self.class pushPauseImage];
     
     self.pushConfig = pushConfig;
     
@@ -79,6 +84,9 @@ AlivcLivePusherCustomDetectorDelegate
 //    [self switchCamera];
 //    [self mute:YES];
 #endif
+    
+    [self mute:_isMute];
+    [self pause:_isPause];
 }
 
 - (void)destory {
@@ -90,6 +98,9 @@ AlivcLivePusherCustomDetectorDelegate
 }
 
 - (BOOL)start {
+    if (!_pushEngine) {
+        return NO;
+    }
     if (self.liveInfoModel.mode == AUIInteractionLiveModeBase) {
         if (self.liveInfoModel.push_url_info.rtmp_url.length > 0) {
             [_pushEngine startPushWithURL:self.liveInfoModel.push_url_info.rtmp_url];
@@ -101,14 +112,41 @@ AlivcLivePusherCustomDetectorDelegate
             [_pushEngine startPushWithURL:self.liveInfoModel.link_info.rtc_push_url];
             return YES;
         }
-    }
-    
-    [AVAlertController show:@"推流失败，缺少推流地址"];
+    }    
     return NO;
 }
 
+- (BOOL)stop {
+    if (!_pushEngine) {
+        return NO;
+    }
+    return [_pushEngine stopPush];
+}
+
 - (void)restart {
+    if (!_pushEngine) {
+        return;
+    }
     [_pushEngine reconnectPushAsync];
+    [self.displayView startLoading];
+}
+
+- (void)pause:(BOOL)pause {
+    if (!_pushEngine) {
+        return;
+    }
+    if (pause) {
+        int ret = [_pushEngine pause];
+        if (ret == 0) {
+            _isPause = YES;
+        }
+    }
+    else {
+        int ret = [_pushEngine resume];
+        if (ret == 0) {
+            _isPause = NO;
+        }
+    }
 }
 
 - (void)mute:(BOOL)mute {
@@ -117,27 +155,6 @@ AlivcLivePusherCustomDetectorDelegate
     }
     [_pushEngine setMute:mute];
     _isMute = mute;
-}
-
-- (void)pause {
-    if (!_pushEngine) {
-        return;
-    }
-    
-    int ret = [_pushEngine pause];
-    if (ret == 0) {
-        _isPause = YES;
-    }
-}
-
-- (void)resume {
-    if (!_pushEngine) {
-        return;
-    }
-    int ret = [_pushEngine resume];
-    if (ret == 0) {
-        _isPause = NO;
-    }
 }
 
 - (void)switchCamera {
@@ -243,6 +260,7 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onSystemError:(AlivcLivePusher *)pusher error:(AlivcLivePushError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onSystemError");
+        [self.displayView endLoading];
         if (self.onConnectErrorBlock) {
             self.onConnectErrorBlock();
         }
@@ -252,6 +270,7 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onSDKError:(AlivcLivePusher *)pusher error:(AlivcLivePushError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onSDKError");
+        [self.displayView endLoading];
         if (self.onConnectErrorBlock) {
             self.onConnectErrorBlock();
         }
@@ -291,10 +310,11 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onConnectFail:(AlivcLivePusher *)pusher error:(AlivcLivePushError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onConnectFail");
+        [self.displayView endLoading];
         if (self.onConnectErrorBlock) {
             self.onConnectErrorBlock();
         }
-        [AVAlertController showWithTitle:nil message:@"链接失败，请检查网络状态后重试" needCancel:YES onCompleted:^(BOOL isCancel) {
+        [AVAlertController showWithTitle:nil message:@"直播中断，您可以检查网络连接后再次直播" cancelTitle:@"取消" okTitle:@"重试" onCompleted:^(BOOL isCancel) {
             if (!isCancel) {
                 [self restart];
             }
@@ -305,6 +325,7 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onReconnectStart:(AlivcLivePusher *)pusher {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onReconnectStart");
+        [self.displayView startLoading];
         if (self.onReconnectStartBlock) {
             self.onReconnectStartBlock();
         }
@@ -314,6 +335,7 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onReconnectSuccess:(AlivcLivePusher *)pusher {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onReconnectSuccess");
+        [self.displayView endLoading];
         if (self.onReconnectSuccessBlock) {
             self.onReconnectSuccessBlock();
         }
@@ -323,10 +345,11 @@ AlivcLivePusherCustomDetectorDelegate
 - (void)onReconnectError:(AlivcLivePusher *)pusher error:(AlivcLivePushError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSLog(@"LiveEvent:onReconnectError");
+        [self.displayView endLoading];
         if (self.onReconnectErrorBlock) {
             self.onReconnectErrorBlock();
         }
-        [AVAlertController showWithTitle:nil message:@"重连失败，请检查网络状态后重试" needCancel:YES onCompleted:^(BOOL isCancel) {
+        [AVAlertController showWithTitle:nil message:@"直播中断，您可以检查网络连接后再次直播" cancelTitle:@"取消" okTitle:@"重试" onCompleted:^(BOOL isCancel) {
             if (!isCancel) {
                 [self restart];
             }

@@ -12,24 +12,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol AUILiveRoomCommentTableViewDelegate <NSObject>
 
-- (void)actionWhenCommentCellLongPressed:(AUILiveRoomCommentModel *)commentModel;
-- (void)actionWhenCommentCellTapped:(AUILiveRoomCommentModel *)commentModel;
-- (void)actionWhenUnpresentedCommentCountChange:(NSInteger)count;
-- (void)actionWhenOneCommentPresentedWithActualHeight:(CGFloat)height;
-- (void)actionWhenCommentJustAboutToPresent:(AUILiveRoomCommentModel *)model;
+- (void)onCommentCellLongPressed:(AUILiveRoomCommentModel *)commentModel;
+- (void)onCommentCellTapped:(AUILiveRoomCommentModel *)commentModel;
 
 @end
 
 @interface AUILiveRoomCommentTableView : UITableView
 
 @property(nonatomic, weak) id<AUILiveRoomCommentTableViewDelegate> commentDelegate;
+@property(nonatomic, assign, readonly) NSUInteger commentCount;
 
-- (void)insertNewComment:(AUILiveRoomCommentModel*)comment presentedCompulsorily:(BOOL)presentedCompulsorily;
-
-- (void)scrollToNewestComment;
-
-- (void) startPresenting;
-- (void) stopPresenting;
+- (void)insertNewComment:(AUILiveRoomCommentModel*)comment
+   presentedCompulsorily:(BOOL)presentedCompulsorily;
 
 @end
 

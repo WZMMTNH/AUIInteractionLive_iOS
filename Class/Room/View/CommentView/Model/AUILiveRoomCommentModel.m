@@ -6,27 +6,13 @@
 //
 
 #import "AUILiveRoomCommentModel.h"
+#import "AUIFoundation.h"
 
 @interface AUILiveRoomCommentModel()
-
-@property (copy, nonatomic) NSString* fullCommentString;
 
 @end
 
 @implementation AUILiveRoomCommentModel
-
-#pragma mark --Properties
-
-- (void) setSenderNick:(NSString *)senderNick {
-    _senderNick = senderNick;
-    [self updateDefaultSenderNickColor];
-    [self constructFullCommentString];
-}
-
-- (void) setSentContent:(NSString *)sentContent {
-    _sentContent = sentContent;
-    [self constructFullCommentString];
-}
 
 - (instancetype) init {
     self = [super init];
@@ -36,28 +22,45 @@
     return self;
 }
 
-- (void) constructFullCommentString {
-    if (_sentContent.length > 0) {
-        if (_senderNick > 0) {
-            _fullCommentString = [NSString stringWithFormat:@"%@：%@", _senderNick, _sentContent];
-        } else {
-            _fullCommentString = [NSString stringWithFormat:@"%@", _sentContent];
+- (UIColor *)nickColorWithUid:(NSString *)uid {
+    static NSArray *_array = nil;
+    if (!_array) {
+        _array = @[
+            [UIColor av_colorWithHexString:@"#FFAB91"],
+            [UIColor av_colorWithHexString:@"#FED998"],
+            [UIColor av_colorWithHexString:@"#F6A0B5"],
+            [UIColor av_colorWithHexString:@"#CBED8E"],
+            [UIColor av_colorWithHexString:@"#95D8F8"],
+        ];
+    }
+    
+    if (uid.length > 0) {
+        unsigned short first = [uid characterAtIndex:0];
+        return _array[first % _array.count];
+    }
+    
+    return nil;
+}
+
+- (NSAttributedString *)renderContent {
+    NSMutableAttributedString *attributeString = [[NSMutableAttributedString alloc] init];
+    
+    NSString *nickName = self.senderNick ?: self.senderID;
+    if (nickName.length > 0) {
+        UIColor *nickColor = self.senderNickColor;
+        if (!nickColor) {
+            nickColor = [self nickColorWithUid:self.senderID ?: @"2"];
         }
+        [attributeString appendAttributedString:[[NSAttributedString alloc] initWithString:[nickName stringByAppendingString:@"："] attributes:@{NSForegroundColorAttributeName:nickColor, NSFontAttributeName:AVGetRegularFont(14.0)}]];
     }
-}
-
-- (void) updateDefaultSenderNickColor {
-    if (_senderNick && !_senderNickColor) {
-        NSUInteger senderHash = [_senderNick hash];
-        CGFloat hue = (senderHash % 256 / 256.0 );
-        CGFloat saturation = (senderHash% 128 / 256.0 ) + 0.5;
-        CGFloat brightness = (senderHash% 128 / 256.0 ) + 0.5;
-        _senderNickColor = [UIColor colorWithHue:hue saturation:saturation brightness:brightness alpha:1];
+    if (self.sentContent.length > 0) {
+        UIColor *nickColor = self.sentContentColor;
+        if (!nickColor) {
+            nickColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        }
+        [attributeString appendAttributedString:[[NSAttributedString alloc] initWithString:self.sentContent attributes:@{NSForegroundColorAttributeName:nickColor, NSFontAttributeName:AVGetRegularFont(14.0)}]];
     }
+    return attributeString;
 }
-
-@end
-
-@implementation AUILiveRoomSystemMessageModel
 
 @end

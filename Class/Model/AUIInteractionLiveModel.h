@@ -32,15 +32,20 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-@interface AUIInteractionLiveLinkMicPullInfo : AUIInteractionLiveModel
+// 上麦信息
+@interface AUIInteractionLiveLinkMicJoinInfoModel : AUIInteractionLiveModel
 
 @property (nonatomic, copy, readonly) NSString *userId;
 @property (nonatomic, copy, readonly) NSString *userNick;
+@property (nonatomic, copy, readonly) NSString *userAvatar;
 @property (nonatomic, copy, readonly) NSString *rtcPullUrl;
+@property (nonatomic, assign) BOOL cameraOpened;
+@property (nonatomic, assign) BOOL micOpened;
 
-- (instancetype)init:(NSString *)userId userNick:(NSString *)userNick rtcPullUrl:(NSString *)rtcPullUrl;
+- (instancetype)init:(NSString *)userId userNick:(NSString *)userNick userAvatar:(NSString *)userAvatar rtcPullUrl:(NSString *)rtcPullUrl;
 
 - (NSDictionary *)toDictionary;
+
 
 @end
 
@@ -49,8 +54,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, readonly) AUIInteractionLivePullModel *cdn_pull_info;
 @property (nonatomic, copy, readonly) NSString *rtc_pull_url;
 @property (nonatomic, copy, readonly) NSString *rtc_push_url;
-
-@property (nonatomic, copy, readonly) NSArray<AUIInteractionLiveLinkMicPullInfo *> *linkMicList;
 
 @end
 
@@ -62,6 +65,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign, readonly) NSInteger online_count;
 @property (nonatomic, assign, readonly) NSInteger total_count;
 
+@end
+
+
+@interface AUIInteractionLiveVodInfoModel : AUIInteractionLiveModel
+
+@property (nonatomic, assign, readonly) BOOL isValid;
+@property (nonatomic, copy, readonly) NSString *play_url;
 
 @end
 
@@ -82,16 +92,21 @@ typedef NS_ENUM(NSUInteger, AUIInteractionLiveMode) {
 @property (nonatomic, assign, readonly) AUIInteractionLiveStatus status;
 @property (nonatomic, assign, readonly) AUIInteractionLiveMode mode;
 @property (nonatomic, copy, readonly) NSString *anchor_id;
+@property (nonatomic, copy, readonly) NSString *anchor_nickName;
+@property (nonatomic, copy, readonly) NSString *anchor_avatar;
 @property (nonatomic, copy, readonly) NSString *chat_id;
 @property (nonatomic, copy, readonly) NSString *created_at;
 @property (nonatomic, copy, readonly) NSString *update_at;
 @property (nonatomic, copy, readonly) NSDictionary *extends;
 @property (nonatomic, copy, readonly) NSString *title;
+@property (nonatomic, copy, readonly) NSString *notice;
+@property (nonatomic, copy, readonly) NSString *cover;
 @property (nonatomic, copy, readonly) NSString *pk_id;
 @property (nonatomic, strong, readonly) AUIInteractionLiveMetricsModel *metrics;
 @property (nonatomic, strong, readonly) AUIInteractionLivePullModel *pull_url_info;
 @property (nonatomic, strong, readonly) AUIInteractionLivePushModel *push_url_info;
 @property (nonatomic, strong, readonly) AUIInteractionLiveLinkMicModel *link_info;
+@property (nonatomic, strong, readonly) AUIInteractionLiveVodInfoModel *vod_info;
 
 - (void)updateStatus:(AUIInteractionLiveStatus)status;
 

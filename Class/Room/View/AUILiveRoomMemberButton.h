@@ -11,10 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AUILiveRoomMemberButton : UIView
 
-@property (strong, nonatomic) UIButton *memberHeaderImageButton;
-@property (strong, nonatomic) UIButton *memberTextButton;
-@property (strong, nonatomic) UIButton *memberDowndropFlagImageButton;
-@property (copy, nonatomic) void(^onMemberButtonClicked)(void);
+- (void)updateMemberCount:(NSUInteger)count;
 
 @end
 

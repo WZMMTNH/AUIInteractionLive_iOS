@@ -16,7 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)fetchToken:(void(^)(NSString * _Nullable accessToken, NSString * _Nullable refreshToken, NSError * _Nullable error))completed;
 
-+ (void)createLive:(NSString * _Nullable)groupId mode:(NSInteger)mode title:(NSString *)title extend:(NSDictionary * _Nullable)extend completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
++ (void)createLive:(NSString * _Nullable)groupId mode:(NSInteger)mode title:(NSString *)title notice:(NSString * _Nullable)notice extend:(NSDictionary * _Nullable)extend completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
 
 + (void)startLive:(NSString *)liveId completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
 
@@ -26,7 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)fetchLive:(NSString *)liveId userId:(NSString * _Nullable)userId completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
 
-+ (void)updateLive:(NSString *)liveId title:(NSString *)title extend:(NSDictionary * _Nullable)extend completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
++ (void)updateLive:(NSString *)liveId title:(NSString * _Nullable)title notice:(NSString * _Nullable)notice extend:(NSDictionary * _Nullable)extend completed:(void(^)(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error))completed;
+
++ (void)queryLinkMicJoinList:(NSString *)liveId completed:(void(^)(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> * _Nullable models, NSError * _Nullable error))completed;
++ (void)updateLinkMicJoinList:(NSString *)liveId joinList:(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList  completed:(void(^)(NSError * _Nullable error))completed;
 
 @end
 

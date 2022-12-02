@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AUILiveRoomRtcPull : NSObject
 
-@property (strong, nonatomic) AUIInteractionLiveLinkMicPullInfo *pullInfo;
+@property (strong, nonatomic) AUIInteractionLiveLinkMicJoinInfoModel *joinInfo;
 
 @property (strong, nonatomic, readonly) AUILiveRoomLiveDisplayView *displayView;
 

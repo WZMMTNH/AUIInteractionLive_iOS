@@ -9,69 +9,48 @@
 #import "AUIFoundation.h"
 #import <Masonry/Masonry.h>
 
+@interface AUILiveRoomPushStatusView ()
+
+@property (strong, nonatomic) UIView *flagView;
+@property (strong, nonatomic) UILabel *statusLabel;
+
+@end
+
 @implementation AUILiveRoomPushStatusView
 
-#pragma mark -Properties
-
-- (void)setPushStatus:(AUILiveRoomPushStatus)pushStatus {
-    _pushStatus = pushStatus;
-    
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (pushStatus == AUILiveRoomPushStatusFluent) {
-            self.statusTextLabel.text = @"直播流畅";
-            self.statusColorButton.backgroundColor = [UIColor av_colorWithHexString:@"#51C359" alpha:1.0];
-        } else if (pushStatus == AUILiveRoomPushStatusStuttering) {
-            self.statusTextLabel.text = @"直播卡顿";
-            self.statusColorButton.backgroundColor = [UIColor av_colorWithHexString:@"#FFA623" alpha:1.0];
-        } else if (pushStatus == AUILiveRoomPushStatusBrokenOff) {
-            self.statusTextLabel.text = @"直播中断";
-            self.statusColorButton.backgroundColor = [UIColor av_colorWithHexString:@"#FE3143" alpha:1.0];
-        }
-    });
-}
-
-- (UIButton *)statusColorButton {
-    if (!_statusColorButton) {
-        _statusColorButton = [[UIButton alloc] init];
-        _statusColorButton.layer.cornerRadius = 3;
-        _statusColorButton.clipsToBounds = YES;
-        _statusColorButton.backgroundColor = [UIColor av_colorWithHexString:@"#51C359" alpha:1.0];
-        [self addSubview:_statusColorButton];
-        [_statusColorButton mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.width.mas_equalTo(6);
-            make.height.mas_equalTo(6);
-            make.left.equalTo(self.mas_left);
-            make.centerY.equalTo(self.mas_centerY);
-        }];
-    }
-    return _statusColorButton;
-}
-
-- (UILabel *)statusTextLabel {
-    if (!_statusTextLabel) {
-        _statusTextLabel = [[UILabel alloc] init];
-        _statusTextLabel.text = @"直播中断";
-        _statusTextLabel.font = [UIFont fontWithName:@"PingFangSC-Regular" size:12];
-        [self addSubview:_statusTextLabel];
-        [_statusTextLabel mas_makeConstraints:^(MASConstraintMaker * _Nonnull make) {
-            make.width.mas_equalTo(52);
-            make.height.mas_equalTo(18);
-            make.right.equalTo(self.mas_right).with.offset(-12);
-            make.centerY.equalTo(self.mas_centerY);
-        }];
-    }
-    return _statusTextLabel;
-}
-
-#pragma mark -Lifecycle
-
-- (instancetype)init {
-    self = [super init];
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
     if (self) {
-        [self bringSubviewToFront:self.statusColorButton];
-        [self bringSubviewToFront:self.statusTextLabel];
+        UIView *flagView = [[UIView alloc] initWithFrame:CGRectMake(0, (self.av_height - 4) / 2.0, 4, 4)];
+        [self addSubview:flagView];
+        self.flagView = flagView;
+        
+        UILabel *statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(flagView.av_right + 4, 0, self.av_width - flagView.av_right - 4, self.av_height)];
+        statusLabel.font = AVGetRegularFont(10);
+        statusLabel.textColor = [UIColor av_colorWithHexString:@"#FCFCFD"];
+        [self addSubview:statusLabel];
+        self.statusLabel = statusLabel;
+        
+        self.pushStatus = AUILiveRoomPushStatusFluent;
     }
     return self;
 }
+
+- (void)setPushStatus:(AUILiveRoomPushStatus)pushStatus {
+    _pushStatus = pushStatus;
+    if (pushStatus == AUILiveRoomPushStatusFluent) {
+        self.statusLabel.text = @"网络良好";
+        self.flagView.backgroundColor = [UIColor av_colorWithHexString:@"#3BB346" alpha:1.0];
+    }
+    else if (pushStatus == AUILiveRoomPushStatusStuttering) {
+        self.statusLabel.text = @"网络不佳";
+        self.flagView.backgroundColor = [UIColor av_colorWithHexString:@"#FFC422" alpha:1.0];
+    }
+    else if (pushStatus == AUILiveRoomPushStatusBrokenOff) {
+        self.statusLabel.text = @"网络异常";
+        self.flagView.backgroundColor = [UIColor av_colorWithHexString:@"#F53F3F" alpha:1.0];
+    }
+}
+
 
 @end

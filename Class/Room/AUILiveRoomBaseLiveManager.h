@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol AUILiveRoomLiveManagerAnchorProtocol <NSObject>
 
 @property (strong, nonatomic, readonly) AUILiveRoomManager *roomManager;
-@property (nonatomic, strong, readonly) AUILiveRoomLiveDisplayLayoutView *displayView;
+@property (nonatomic, strong, readonly) AUILiveRoomLiveDisplayLayoutView *displayLayoutView;
 @property (strong, nonatomic, readonly) AUILiveRoomPusher *livePusher;
 @property (assign, nonatomic, readonly) BOOL isLiving;
 @property (nonatomic, weak) UIViewController *roomVC;
@@ -36,8 +36,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setupLivePusher;
 - (void)prepareLivePusher;
 - (void)startLivePusher;
+- (void)stopLivePusher;
 - (void)destoryLivePusher;
 
+- (BOOL)openLivePusherMic:(BOOL)open;
+- (BOOL)openLivePusherCamera:(BOOL)open;
 
 @end
 
@@ -55,15 +58,10 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol AUILiveRoomLiveManagerAudienceProtocol <NSObject>
 
 @property (strong, nonatomic, readonly) AUILiveRoomManager *roomManager;
-@property (nonatomic, strong, readonly) AUILiveRoomLiveDisplayLayoutView *displayView;
+@property (nonatomic, strong, readonly) AUILiveRoomLiveDisplayLayoutView *displayLayoutView;
 @property (assign, nonatomic, readonly) BOOL isLiving;
 @property (nonatomic, weak) UIViewController *roomVC;
 
-@property (copy, nonatomic) void(^onPrepareStartBlock)(void);
-@property (copy, nonatomic) void(^onPrepareDoneBlock)(void);
-@property (copy, nonatomic) void(^onLoadingStartBlock)(void);
-@property (copy, nonatomic) void(^onLoadingEndBlock)(void);
-@property (copy, nonatomic) void(^onPlayErrorBlock)(BOOL willRetry);
 - (void)setupPullPlayer;
 - (void)preparePullPlayer;
 - (void)startPullPlayer;

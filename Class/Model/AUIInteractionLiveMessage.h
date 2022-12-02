@@ -16,12 +16,18 @@ typedef NS_ENUM(NSUInteger, AUIInteractionLiveMessageType) {
     AUIInteractionLiveMessageTypeStartLive,
     AUIInteractionLiveMessageTypeStopLive,
     AUIInteractionLiveMessageTypeLiveInfo,
+    AUIInteractionLiveMessageTypeNotice,
     
     AUIInteractionLiveMessageTypeApplyLinkMic = 20001,
     AUIInteractionLiveMessageTypeResponseLinkMic,
     AUIInteractionLiveMessageTypeJoinLinkMic,
     AUIInteractionLiveMessageTypeLeaveLinkMic,
     AUIInteractionLiveMessageTypeKickoutLinkMic,
+    AUIInteractionLiveMessageTypeCancelApplyLinkMic,
+    AUIInteractionLiveMessageTypeMicOpened,
+    AUIInteractionLiveMessageTypeCameraOpened,
+    AUIInteractionLiveMessageTypeNeedOpenMic,
+    AUIInteractionLiveMessageTypeNeedOpenCamera,
 };
 
 @interface AUIInteractionLiveMessage : NSObject

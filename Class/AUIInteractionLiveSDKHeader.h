@@ -21,6 +21,11 @@
 #import <Queen/Queen.h>
 #endif
 
+#if __has_include(<RtsSDK/RtsSDK.h>)
+#define RTS_SUPPORT
+#import <RtsSDK/RtsSDK.h>
+#endif
+
 #import <AliyunPlayer/AliyunPlayer.h>
 
 #import <AlivcInteraction/AlivcInteraction.h>

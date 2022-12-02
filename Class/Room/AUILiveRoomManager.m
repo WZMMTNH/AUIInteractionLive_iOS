@@ -25,6 +25,8 @@
 @property (assign, nonatomic) NSInteger likeCountWillSend;
 @property (assign, nonatomic) NSInteger likeCountToSend;
 
+@property (copy, nonatomic) NSString *notice;
+
 @end
 
 @implementation AUILiveRoomManager
@@ -81,7 +83,7 @@
 #pragma mark - Live
 
 - (void)startLive:(void(^)(BOOL))completed {
-    if (!self.isJoined || ![self isAnchor]) {
+    if (!self.isJoined || !self.isAnchor) {
         if (completed) {
             completed(NO);
         }
@@ -105,11 +107,17 @@
 }
 
 - (void)finishLive:(void(^)(BOOL))completed {
-    if (!self.isJoined || ![self isAnchor]) {
+    if (!self.isJoined || !self.isAnchor) {
         if (completed) {
             completed(NO);
         }
         return;
+    }
+    
+    if (self.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+        if (completed) {
+            completed(YES);
+        }
     }
     
     [AUIInteractionLiveService stopLive:self.liveInfoModel.live_id ?: @"" completed:^(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error) {
@@ -185,7 +193,7 @@
 }
 
 - (void)muteAll:(void (^)(BOOL))completed {
-    if (!self.isJoined || ![self isAnchor]) {
+    if (!self.isJoined || !self.isAnchor) {
         if (completed) {
             completed(NO);
         }
@@ -209,7 +217,7 @@
 }
 
 - (void)cancelMuteAll:(void (^)(BOOL))completed {
-    if (!self.isJoined || ![self isAnchor]) {
+    if (!self.isJoined || !self.isAnchor) {
         if (completed) {
             completed(NO);
         }
@@ -232,11 +240,37 @@
     }];
 }
 
+#pragma mark - Notice
+
+- (void)updateNotice:(NSString *)notice completed:(void (^)(BOOL))completed {
+    if (!self.isAnchor) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    [AUIInteractionLiveService updateLive:self.liveInfoModel.live_id title:nil notice:notice extend:nil completed:^(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error) {
+        if (!error) {
+            self.notice = notice;
+            NSDictionary *msg = @{@"notice":notice?:@""};
+            [self sendMessage:msg type:AUIInteractionLiveMessageTypeNotice uids:nil skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+                if (completed) {
+                    completed(success);
+                }
+            }];
+        }
+        if (completed) {
+            completed(!error);
+        }
+    }];
+}
+
+
 #pragma mark - Like
 
 - (void)sendLike {
     self.likeCountWillSend++;
-    NSLog(@"SendLike will send:%zd", self.likeCountWillSend);
+    NSLog(@"like_button:will send:%zd", self.likeCountWillSend);
     if (!self.sendLikeTimer) {
         [self startSendLikeTimer];
     }
@@ -282,22 +316,86 @@
     if (self.likeCountWillSend > 0) {
         self.likeCountToSend = self.likeCountWillSend;
         self.likeCountWillSend = 0;
-        NSLog(@"SendLike sending:%zd", self.likeCountToSend);
+        NSLog(@"like_button:sending:%zd", self.likeCountToSend);
         __weak typeof(self) weakSelf = self;
         [self sendLike:self.likeCountToSend completed:^(BOOL success) {
             if (!success) {
                 weakSelf.likeCountWillSend += weakSelf.likeCountToSend;
-                NSLog(@"SendLike send failed:%zd", weakSelf.likeCountToSend);
+                NSLog(@"like_button:send failed:%zd", weakSelf.likeCountToSend);
             }
             else {
-                NSLog(@"SendLike send completed:%zd", weakSelf.likeCountToSend);
+                NSLog(@"like_button:send completed:%zd", weakSelf.likeCountToSend);
             }
             if (weakSelf.likeCountWillSend > 0) {
                 [weakSelf startSendLikeTimer];
-                NSLog(@"SendLike next 2 second to send:%zd", weakSelf.likeCountWillSend);
+                NSLog(@"like_button:next 2 second to send:%zd", weakSelf.likeCountWillSend);
             }
         }];
     }
+}
+
+#pragma mark - Pusher state
+
+- (void)sendCameraOpened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isJoined) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    NSDictionary *msg = @{@"cameraOpened":@(opened)};
+    [self sendMessage:msg type:AUIInteractionLiveMessageTypeCameraOpened uids:nil skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+        if (completed) {
+            completed(success);
+        }
+    }];
+}
+
+- (void)sendMicOpened:(BOOL)opened completed:(void (^)(BOOL))completed {
+    if (!self.isJoined) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    NSDictionary *msg = @{@"micOpened":@(opened)};
+    [self sendMessage:msg type:AUIInteractionLiveMessageTypeMicOpened uids:nil skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+        if (completed) {
+            completed(success);
+        }
+    }];
+}
+
+- (void)sendOpenCamera:(NSString *)userId needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isJoined || !self.isAnchor || userId.length == 0 || [userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    NSDictionary *msg = @{@"needOpenCamera":@(needOpen)};
+    [self sendMessage:msg type:AUIInteractionLiveMessageTypeNeedOpenCamera uids:@[userId] skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+        if (completed) {
+            completed(success);
+        }
+    }];
+}
+
+- (void)sendOpenMic:(NSString *)userId needOpen:(BOOL)needOpen completed:(void (^)(BOOL))completed {
+    if (!self.isJoined || !self.isAnchor || userId.length == 0 || [userId isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    NSDictionary *msg = @{@"needOpenMic":@(needOpen)};
+    [self sendMessage:msg type:AUIInteractionLiveMessageTypeNeedOpenMic uids:@[userId] skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+        if (completed) {
+            completed(success);
+        }
+    }];
 }
 
 #pragma mark - Comment
@@ -376,7 +474,7 @@
     }
     
     // 观众只能申请跟主播连麦
-    if (![self isAnchor] && ![uid isEqualToString:self.liveInfoModel.anchor_id]) {
+    if (self.isAnchor || ![uid isEqualToString:self.liveInfoModel.anchor_id]) {
         if (completed) {
             completed(NO);
         }
@@ -392,8 +490,33 @@
     }];
 }
 
-- (void)sendResponseLinkMic:(NSString *)uid agree:(BOOL)agree pullUrl:(NSString *)pullUrl completed:(void (^)(BOOL))completed {
+- (void)sendCancelApplyLinkMic:(NSString *)uid completed:(void (^)(BOOL))completed {
     if (!self.isJoined || uid.length == 0 || [uid isEqualToString:AUIInteractionAccountManager.me.userId]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    // 观众只能跟主播取消申请连麦
+    if (self.isAnchor || ![uid isEqualToString:self.liveInfoModel.anchor_id]) {
+        if (completed) {
+            completed(NO);
+        }
+        return;
+    }
+    
+    NSDictionary *msg = @{
+    };
+    [self sendMessage:msg type:AUIInteractionLiveMessageTypeCancelApplyLinkMic uids:@[uid] skipMuteCheck:YES skipAudit:YES completed:^(BOOL success) {
+        if (completed) {
+            completed(success);
+        }
+    }];
+}
+
+- (void)sendResponseLinkMic:(NSString *)uid agree:(BOOL)agree pullUrl:(NSString *)pullUrl completed:(void (^)(BOOL))completed {
+    if (!self.isJoined || !self.isAnchor || uid.length == 0 || [uid isEqualToString:AUIInteractionAccountManager.me.userId]) {
         if (completed) {
             completed(NO);
         }
@@ -412,7 +535,7 @@
 }
 
 - (void)sendJoinLinkMic:(NSString *)pullUrl completed:(void (^)(BOOL))completed {
-    if (!self.isJoined || pullUrl.length == 0 || [self isAnchor]) {
+    if (!self.isJoined || pullUrl.length == 0 || self.isAnchor) {
         if (completed) {
             completed(NO);
         }
@@ -430,7 +553,7 @@
 }
 
 - (void)sendLeaveLinkMic:(BOOL)byKickout completed:(void (^)(BOOL))completed {
-    if (!self.isJoined || [self isAnchor]) {
+    if (!self.isJoined || self.isAnchor) {
         if (completed) {
             completed(NO);
         }
@@ -448,7 +571,7 @@
 }
 
 - (void)sendKickoutLinkMic:(NSString *)uid completed:(void (^)(BOOL))completed {
-    if (![self isAnchor] || !self.isJoined || uid.length == 0 || [uid isEqualToString:AUIInteractionAccountManager.me.userId]) {
+    if (!self.isAnchor || !self.isJoined || uid.length == 0 || [uid isEqualToString:AUIInteractionAccountManager.me.userId]) {
         if (completed) {
             completed(NO);
         }
@@ -464,70 +587,50 @@
     }];
 }
 
-- (void)queryLinkMicList:(void (^)(NSArray<AUIInteractionLiveLinkMicPullInfo *> *))completed {
-    [AUIInteractionLiveService fetchLive:self.liveInfoModel.live_id userId:self.liveInfoModel.anchor_id completed:^(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error) {
-        if (error) {
-            if (completed) {
-                completed(nil);
-            }
+- (void)queryLinkMicJoinList:(void (^)(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *))completed {
+    
+    if (self.liveInfoModel.mode == AUIInteractionLiveModeBase) {
+        if (completed) {
+            completed(nil);
         }
-        else {
-            NSMutableArray *list = [NSMutableArray array];
-            if (model.mode == AUIInteractionLiveModeBase) {
-                list = nil;
-            }
-            else {
-                AUIInteractionLiveLinkMicPullInfo *anchor = [[AUIInteractionLiveLinkMicPullInfo alloc] init:model.anchor_id userNick:@"主播" rtcPullUrl:model.link_info.rtc_pull_url];
-                [list addObject:anchor];
-                [model.link_info.linkMicList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicPullInfo * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                    if ([obj.userId isEqual:anchor.userId]) {
-                        return;
-                    }
-                    [list addObject:obj];
-                }];
-            }
-            
-            if (completed) {
-                completed(list);
-            }
+        return;
+    }
+    
+    [AUIInteractionLiveService queryLinkMicJoinList:self.liveInfoModel.live_id completed:^(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> * _Nullable models, NSError * _Nullable error) {
+        if (completed) {
+            completed(models);
         }
     }];
 }
 
-- (void)updateLinkMicList:(NSArray<AUIInteractionLiveLinkMicPullInfo *> *)linkMicList completed:(void (^)(BOOL))completed {
-    if (![self isAnchor]) {
+- (void)updateLinkMicJoinList:(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList completed:(nullable void (^)(BOOL))completed {
+    if (!self.isAnchor) {
         if (completed) {
             completed(NO);
         }
         return;
     }
-    if (!linkMicList) {
-        linkMicList = @[];
-    }
-    NSMutableDictionary *extends = [NSMutableDictionary dictionaryWithDictionary:self.liveInfoModel.extends];
-    NSMutableArray *linkmicInfo = [NSMutableArray array];
-    [linkMicList enumerateObjectsUsingBlock:^(AUIInteractionLiveLinkMicPullInfo * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        [linkmicInfo addObject:[obj toDictionary]];
-    }];
-    [extends setObject:linkmicInfo forKey:@"linkMicInfo"];
-    
-    [AUIInteractionLiveService updateLive:self.liveInfoModel.live_id title:self.liveInfoModel.title extend:extends completed:^(AUIInteractionLiveInfoModel * _Nullable model, NSError * _Nullable error) {
+    [AUIInteractionLiveService updateLinkMicJoinList:self.liveInfoModel.live_id joinList:joinList completed:^(NSError * _Nullable error) {
         if (completed) {
-            completed(!error);
+            completed(error == nil);
         }
     }];
 }
 
 #pragma mark - Life Cycle
 
-- (instancetype)initWithModel:(AUIInteractionLiveInfoModel *)model withInteractionEngine:(AVCIInteractionEngine *)interactionEngine {
+- (instancetype)initWithModel:(AUIInteractionLiveInfoModel *)model
+                 withJoinList:(NSArray<AUIInteractionLiveLinkMicJoinInfoModel *> *)joinList
+        withInteractionEngine:(AVCIInteractionEngine *)interactionEngine {
     self = [super init];
     if (self) {
         _liveInfoModel = model;
+        _joinList = joinList;
         _interactionEngine = interactionEngine;
         
         _allLikeCount = _liveInfoModel.metrics.like_count;
         _pv = _liveInfoModel.metrics.pv;
+        _notice = _liveInfoModel.notice;
     }
     return self;
 }
@@ -558,11 +661,19 @@
         }
         return;
     }
+    if (message.type == AUIInteractionLiveMessageTypeNotice) {
+        NSString *notice = [data objectForKey:@"notice"];
+        self.notice = notice;
+        if (self.onReceivedNoticeUpdate) {
+            self.onReceivedNoticeUpdate(sender, notice);
+        }
+        return;
+    }
     
     if (message.type == AUIInteractionLiveMessageTypeJoinLinkMic) {
-        AUIInteractionLiveLinkMicPullInfo *linkMicUserInfo = [[AUIInteractionLiveLinkMicPullInfo alloc] init:sender.userId userNick:sender.nickName rtcPullUrl:[data objectForKey:@"rtcPullUrl"]];
+        AUIInteractionLiveLinkMicJoinInfoModel *joinInfo = [[AUIInteractionLiveLinkMicJoinInfoModel alloc] init:sender.userId userNick:sender.nickName userAvatar:sender.avatar rtcPullUrl:[data objectForKey:@"rtcPullUrl"]];
         if (self.onReceivedJoinLinkMic) {
-            self.onReceivedJoinLinkMic(sender, linkMicUserInfo);
+            self.onReceivedJoinLinkMic(sender, joinInfo);
         }
         return;
     }
@@ -578,6 +689,12 @@
         }
         return;
     }
+    if (message.type == AUIInteractionLiveMessageTypeCancelApplyLinkMic) {
+        if (self.onReceivedCancelApplyLinkMic) {
+            self.onReceivedCancelApplyLinkMic(sender);
+        }
+        return;
+    }
     if (message.type == AUIInteractionLiveMessageTypeResponseLinkMic) {
         if (self.onReceivedResponseApplyLinkMic) {
             self.onReceivedResponseApplyLinkMic(sender, [[data objectForKey:@"agree"] boolValue], [data objectForKey:@"rtcPullUrl"]);
@@ -587,6 +704,34 @@
     if (message.type == AUIInteractionLiveMessageTypeKickoutLinkMic) {
         if (self.onReceivedLeaveLinkMic) {
             self.onReceivedLeaveLinkMic(sender, AUIInteractionAccountManager.me.userId);
+        }
+        return;
+    }
+    
+    if (message.type == AUIInteractionLiveMessageTypeMicOpened) {
+        if (self.onReceivedMicOpened) {
+            self.onReceivedMicOpened(sender, [[data objectForKey:@"micOpened"] boolValue]);
+        }
+        return;
+    }
+    
+    if (message.type == AUIInteractionLiveMessageTypeCameraOpened) {
+        if (self.onReceivedCameraOpened) {
+            self.onReceivedCameraOpened(sender, [[data objectForKey:@"cameraOpened"] boolValue]);
+        }
+        return;
+    }
+    
+    if (message.type == AUIInteractionLiveMessageTypeNeedOpenMic) {
+        if (self.onReceivedOpenMic) {
+            self.onReceivedOpenMic(sender, [[data objectForKey:@"needOpenMic"] boolValue]);
+        }
+        return;
+    }
+    
+    if (message.type == AUIInteractionLiveMessageTypeNeedOpenCamera) {
+        if (self.onReceivedOpenCamera) {
+            self.onReceivedOpenCamera(sender, [[data objectForKey:@"needOpenCamera"] boolValue]);
         }
         return;
     }
