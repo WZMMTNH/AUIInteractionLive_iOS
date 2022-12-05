@@ -156,9 +156,7 @@ else {
 
 
 // 主播开播
-[AUILiveRoomBeautyManager checkResourceWithCurrentView:self.view completed:^(BOOL completed) {
-    [[AUIInteractionLiveManager defaultManager] createLive:AUIInteractionLiveModeLinkMic title:@"直播标题" currentVC:self];
-}];
+[[AUIInteractionLiveManager defaultManager] createLive:self];
 
 
 // 进入直播
