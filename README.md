@@ -44,7 +44,7 @@
 可通过以下几个步骤快速集成AUIInteractionLive到你的APP中，让你的APP具备互动直播功能
 
 ### 集成源码
-- 导入AUIInteractionLive：拷贝AUIInteractionLive文件夹到你的APP代码目录下，与你的Podfile文件在同一层级
+- 导入AUIInteractionLive：拷贝AUIInteractionLive文件夹到你的APP代码目录下，与你的Podfile文件在同一层级，可以删除AUIInteractionLive/Demo目录
 - 修改你的Podfile，引入：
   - AliVCSDK_PremiumLive：适用于互动直播的音视频终端SDK，也可以使用AliVCSDK_Premium，参考[SDK说明](https://help.aliyun.com/document_detail/440004.html#section-icw-ppu-dll)
   - AlivcInteraction：互动SDK
@@ -71,7 +71,7 @@ target '你的App target' do
     pod 'AUIQueenCom/AliVCSDK_PremiumLive', '~> 1.6.0'
     
     # 互动直播UI组件，如果终端SDK使用的是AliVCSDK_Premium，需要AliVCSDK_PremiumLive替换为AliVCSDK_Premium
-    pod 'AUIInteractionLive/AliVCSDK_PremiumLive',  :path => "../"
+    pod 'AUIInteractionLive/AliVCSDK_PremiumLive',  :path => "./AUIInteractionLive/"
 
 end
 ```
