@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'AUIInteractionLive'
-  s.version          = '1.1.0'
+  s.version          = '1.2.0'
   s.summary          = 'A short description of AUIInteractionLive.'
 
 # This description is used to generate tags and improve search results.
@@ -21,11 +21,11 @@ Pod::Spec.new do |s|
 TODO: Add long description of the pod here.
                        DESC
 
-  s.homepage         = 'https://github.com/aliyunvideo/AUIInteractionLive'
+  s.homepage         = 'https://github.com/aliyunvideo/AUIInteractionLive_iOS'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :text => 'LICENSE' }
   s.author           = { 'aliyunvideo' => 'videosdk@service.aliyun.com' }
-  s.source           = { :git => 'https://github.com/aliyunvideo/AUIInteractionLive.git', :tag =>"v#{s.version}" }
+  s.source           = { :git => 'https://github.com/aliyunvideo/AUIInteractionLive_iOS', :tag =>"v#{s.version}" }
   # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
 
   s.ios.deployment_target = '10.0'
@@ -38,7 +38,7 @@ TODO: Add long description of the pod here.
     ss.dependency 'AUIFoundation/All'
     ss.dependency 'Masonry'
     ss.dependency 'MJRefresh'
-    ss.dependency 'YYWebImage'
+    ss.dependency 'SDWebImage'
     ss.dependency 'AlivcInteraction'
   end
 

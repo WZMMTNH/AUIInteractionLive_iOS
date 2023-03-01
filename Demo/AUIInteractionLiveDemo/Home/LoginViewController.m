@@ -6,11 +6,11 @@
 //
 
 #import "LoginViewController.h"
-#import "AUIInteractionLiveMacro.h"
+#import "AUIRoomMacro.h"
 #import "AUILiveRoomInputTitleView.h"
 
-#import "AUIInteractionLiveService.h"
-#import "AUIInteractionAccountManager.h"
+#import "AUIRoomAppServer.h"
+#import "AUIRoomAccount.h"
 #import "AUIInteractionLiveManager.h"
 
 
@@ -59,8 +59,8 @@
     login.titleLabel.font = AVGetRegularFont(16);
     [login setTitle:@"进入" forState:UIControlStateNormal];
     [login setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
-    [login setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
-    [login setBackgroundColor:AUIInteractionLiveColourfulFillDisable forState:UIControlStateDisabled];
+    [login setBackgroundColor:AUIRoomColourfulFillStrong forState:UIControlStateNormal];
+    [login setBackgroundColor:AUIRoomColourfulFillDisable forState:UIControlStateDisabled];
     login.enabled = NO;
     [self.contentView addSubview:login];
     self.loginButton = login;
@@ -114,15 +114,15 @@
         hud.labelText = @"登录中...";
         __weak typeof(self) weakSelf = self;
         self.contentView.userInteractionEnabled = NO;
-        [AUIInteractionLiveService requestWithPath:@"/api/v1/live/login" bodyDic:@{@"password":uid, @"username":uid} completionHandler:^(NSURLResponse * _Nonnull response, id  _Nonnull responseObject, NSError * _Nonnull error) {
+        [AUIRoomAppServer requestWithPath:@"/api/v1/live/login" bodyDic:@{@"password":uid, @"username":uid} completionHandler:^(NSURLResponse * _Nonnull response, id  _Nonnull responseObject, NSError * _Nonnull error) {
             weakSelf.contentView.userInteractionEnabled = YES;
             [hud hideAnimated:YES];
             if (!error) {
-                AUIInteractionAccountManager.me.userId = uid;
-                AUIInteractionAccountManager.me.avatar = [LoginViewController defaultAvatarWithUid:uid];
-                AUIInteractionAccountManager.me.nickName = uid;
-                AUIInteractionAccountManager.me.token = [responseObject objectForKey:@"token"];
-                g_lastLoginName = AUIInteractionAccountManager.me.nickName;
+                AUIRoomAccount.me.userId = uid;
+                AUIRoomAccount.me.avatar = [LoginViewController defaultAvatarWithUid:uid];
+                AUIRoomAccount.me.nickName = uid;
+                AUIRoomAccount.me.token = [responseObject objectForKey:@"token"];
+                g_lastLoginName = AUIRoomAccount.me.nickName;
                 [LoginViewController saveCurrentUser];
                 if (weakSelf.onLoginSuccessHandler) {
                     weakSelf.onLoginSuccessHandler(weakSelf);
@@ -142,15 +142,15 @@
 }
 
 + (BOOL)isLogin {
-    return AUIInteractionAccountManager.me.userId.length > 0;
+    return AUIRoomAccount.me.userId.length > 0;
 }
 
 + (void)logout {
     [[AUIInteractionLiveManager defaultManager] logout];
-    AUIInteractionAccountManager.me.userId = @"";
-    AUIInteractionAccountManager.me.avatar = @"";
-    AUIInteractionAccountManager.me.nickName = @"";
-    AUIInteractionAccountManager.me.token = @"";
+    AUIRoomAccount.me.userId = @"";
+    AUIRoomAccount.me.avatar = @"";
+    AUIRoomAccount.me.nickName = @"";
+    AUIRoomAccount.me.token = @"";
     [self saveCurrentUser];
 }
 
@@ -161,18 +161,18 @@ static NSString *g_lastLoginName = nil;
     NSString *nickName = [[NSUserDefaults standardUserDefaults] objectForKey:@"my_user_name"];
     NSString *token = [[NSUserDefaults standardUserDefaults] objectForKey:@"my_user_token"];
     if (userId.length > 0) {
-        AUIInteractionAccountManager.me.userId = userId;
-        AUIInteractionAccountManager.me.avatar = [LoginViewController defaultAvatarWithUid:userId];
-        AUIInteractionAccountManager.me.nickName = nickName;
-        AUIInteractionAccountManager.me.token = token;
+        AUIRoomAccount.me.userId = userId;
+        AUIRoomAccount.me.avatar = [LoginViewController defaultAvatarWithUid:userId];
+        AUIRoomAccount.me.nickName = nickName;
+        AUIRoomAccount.me.token = token;
     }
     g_lastLoginName = [[NSUserDefaults standardUserDefaults] objectForKey:@"last_login_name"];;
 }
 
 + (void)saveCurrentUser {
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.userId forKey:@"my_user_id"];
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.token forKey:@"my_user_token"];
-    [[NSUserDefaults standardUserDefaults] setObject:AUIInteractionAccountManager.me.nickName forKey:@"my_user_name"];
+    [[NSUserDefaults standardUserDefaults] setObject:AUIRoomAccount.me.userId forKey:@"my_user_id"];
+    [[NSUserDefaults standardUserDefaults] setObject:AUIRoomAccount.me.token forKey:@"my_user_token"];
+    [[NSUserDefaults standardUserDefaults] setObject:AUIRoomAccount.me.nickName forKey:@"my_user_name"];
 
     [[NSUserDefaults standardUserDefaults] setObject:g_lastLoginName forKey:@"last_login_name"];
 

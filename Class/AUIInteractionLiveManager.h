@@ -6,7 +6,7 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "AUIInteractionLiveModel.h"
+#import "AUIRoomLiveModel.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -16,15 +16,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)defaultManager;
 
-- (void)createLive:(AUIInteractionLiveMode)mode title:(NSString *)title notice:(NSString  * _Nullable)notice currentVC:(UIViewController *)currentVC completed:(void(^)(BOOL success))completedBlock;
+// 创建直播间
+- (void)createLive:(AUIRoomLiveMode)mode title:(NSString *)title notice:(NSString  * _Nullable)notice currentVC:(UIViewController *)currentVC completed:(void(^)(BOOL success))completedBlock;
 - (void)createLive:(UIViewController *)currentVC;
 
-- (void)joinLive:(AUIInteractionLiveInfoModel *)model currentVC:(UIViewController *)currentVC;
+// 加入直播间
+- (void)joinLive:(AUIRoomLiveInfoModel *)model currentVC:(UIViewController *)currentVC;
 
+// 上一场直播
 - (void)loadLastLiveData;
 - (BOOL)hasLastLive;
 - (void)joinLastLive:(UIViewController *)currentVC;
 
+// 登出
 - (void)logout;
 
 @end

@@ -6,27 +6,27 @@
 //
 
 #import "AUIInteractionLiveListViewController.h"
-#import "AUIInteractionLiveMacro.h"
-#import "AUIInteractionLiveService.h"
-#import "AUIInteractionLiveUser.h"
-#import "AUILiveRoomBeautyManager.h"
+#import "AUIRoomMacro.h"
+#import "AUIRoomAppServer.h"
+#import "AUIRoomUser.h"
+#import "AUIRoomBeautyManager.h"
 
 #import "AUILiveRoomAnchorViewController.h"
 #import "AUIInteractionLiveManager.h"
-#import "AUIInteractionAccountManager.h"
+#import "AUIRoomAccount.h"
 
 #import <MJRefresh/MJRefresh.h>
-#import <YYWebImage/YYWebImage.h>
+#import <SDWebImage/SDWebImage.h>
 
 @interface AUIRoomItem : NSObject
 
-@property (nonatomic, strong) AUIInteractionLiveInfoModel *roomModel;
+@property (nonatomic, strong) AUIRoomLiveInfoModel *roomModel;
 
 @end
 
 @implementation AUIRoomItem
 
-- (instancetype)initWithRoomModel:(AUIInteractionLiveInfoModel *)roomModel {
+- (instancetype)initWithRoomModel:(AUIRoomLiveInfoModel *)roomModel {
     self = [super init];
     if (self) {
         _roomModel = roomModel;
@@ -39,7 +39,7 @@
 }
 
 - (BOOL)living {
-    return _roomModel.status != AUIInteractionLiveStatusFinished;
+    return _roomModel.status != AUIRoomLiveStatusFinished;
 }
 
 - (NSString *)title {
@@ -155,15 +155,15 @@
 - (void)updateItem:(AUIRoomItem *)item {
     _item = item;
     if ([item cover].length > 0) {
-        [self.bgImageView yy_setImageWithURL:[NSURL URLWithString:[item cover]] placeholder:AUIInteractionLiveGetCommonImage(@"ic_list_bg")];
+        [self.bgImageView sd_setImageWithURL:[NSURL URLWithString:[item cover]] placeholderImage:AUIRoomGetCommonImage(@"ic_list_bg")];
     }
     else {
-        self.bgImageView.image = AUIInteractionLiveGetCommonImage(@"ic_list_bg");
+        self.bgImageView.image = AUIRoomGetCommonImage(@"ic_list_bg");
     }
 
     self.titleLabel.text = [item title];
     self.infoLabel.text = [item info];
-    self.stateView.image = [item living] ? AUIInteractionLiveGetCommonImage(@"ic_list_living") : AUIInteractionLiveGetCommonImage(@"ic_list_finish");
+    self.stateView.image = [item living] ? AUIRoomGetCommonImage(@"ic_list_living") : AUIRoomGetCommonImage(@"ic_list_finish");
     self.metricsLabel.text = [item metrics];
 }
 
@@ -213,7 +213,7 @@
     UIButton *add = [[UIButton alloc] initWithFrame:CGRectMake(72, self.contentView.av_height - AVSafeBottom - 26 - 44, self.contentView.av_width - 72 - 72, 44)];
     [add setTitle:@"创建直播间" forState:UIControlStateNormal];
     add.titleLabel.font = AVGetMediumFont(16);
-    add.backgroundColor = AUIInteractionLiveColourfulFillStrong;
+    add.backgroundColor = AUIRoomColourfulFillStrong;
     [add setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
     add.layer.cornerRadius = 22.0;
     [add addTarget:self action:@selector(onAddBtnClicked:) forControlEvents:UIControlEventTouchUpInside];
@@ -251,7 +251,7 @@
     [self.contentView insertSubview:self.emptyView aboveSubview:self.collectionView];
     
     UIImageView *icon = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, 180, 116)];
-    icon.image = AUIInteractionLiveGetImage(@"ic_list_bg_empty");
+    icon.image = AUIRoomGetImage(@"ic_list_bg_empty");
     icon.av_centerX = self.emptyView.av_width / 2.0;
     icon.av_centerY = (self.emptyView.av_height - 24 - 16 - AVSafeBottom - 26 - 44) / 2.0;
     [self.emptyView addSubview:icon];
@@ -297,12 +297,12 @@
         return;
     }
     
-    [AUIInteractionLiveService fetchLiveList:1 pageSize:10 completed:^(NSArray<AUIInteractionLiveInfoModel *> * _Nullable models, NSError * _Nullable error) {
+    [AUIRoomAppServer fetchLiveList:1 pageSize:10 completed:^(NSArray<AUIRoomLiveInfoModel *> * _Nullable models, NSError * _Nullable error) {
         
         [self.collectionView.mj_header endRefreshing];
         if (!error) {
             [self.roomList removeAllObjects];
-            [models enumerateObjectsUsingBlock:^(AUIInteractionLiveInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            [models enumerateObjectsUsingBlock:^(AUIRoomLiveInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                 AUIRoomItem *item = [[AUIRoomItem alloc] initWithRoomModel:obj];
                 [self.roomList addObject:item];
             }];
@@ -346,7 +346,7 @@
         return;
     }
 
-    [AUIInteractionLiveService fetchLiveList:self.lastPageNumber pageSize:10 completed:^(NSArray<AUIInteractionLiveInfoModel *> * _Nullable models, NSError * _Nullable error) {
+    [AUIRoomAppServer fetchLiveList:self.lastPageNumber pageSize:10 completed:^(NSArray<AUIRoomLiveInfoModel *> * _Nullable models, NSError * _Nullable error) {
         
         [self.collectionView.mj_footer endRefreshing];
         if (!error) {
@@ -356,7 +356,7 @@
             }
             else {
                 self.lastPageNumber++;
-                [models enumerateObjectsUsingBlock:^(AUIInteractionLiveInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                [models enumerateObjectsUsingBlock:^(AUIRoomLiveInfoModel * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                     AUIRoomItem *item = [[AUIRoomItem alloc] initWithRoomModel:obj];
                     [self.roomList addObject:item];
                 }];
@@ -425,7 +425,7 @@
     [[AUIInteractionLiveManager defaultManager] createLive:self];
 }
 
-- (void)joinLive:(AUIInteractionLiveInfoModel *)roomModel {
+- (void)joinLive:(AUIRoomLiveInfoModel *)roomModel {
     [[AUIInteractionLiveManager defaultManager] joinLive:roomModel currentVC:self];
 }
 

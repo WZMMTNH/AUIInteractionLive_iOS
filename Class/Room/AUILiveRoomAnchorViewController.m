@@ -7,7 +7,7 @@
 
 #import "AUILiveRoomAnchorViewController.h"
 #import "AUIFoundation.h"
-#import "AUIInteractionLiveMacro.h"
+#import "AUIRoomMacro.h"
 #import <Masonry/Masonry.h>
 
 #import "AUILiveRoomInfoView.h"
@@ -18,14 +18,14 @@
 #import "AUILiveRoomCommentView.h"
 #import "AUILiveRoomAnchorPrestartView.h"
 #import "AUILiveRoomFinishView.h"
-#import "AUILiveRoomLiveDisplayLayoutView.h"
+#import "AUIRoomDisplayView.h"
 #import "AUILiveRoomLivingContainerView.h"
 #import "AUILiveRoomNoticeButton.h"
 #import "AUILIveRoomNoticePanel.h"
 
-#import "AUIInteractionAccountManager.h"
-#import "AUILiveRoomBaseLiveManager.h"
-#import "AUILiveRoomLinkMicManager.h"
+#import "AUIRoomAccount.h"
+#import "AUIRoomBaseLiveManager.h"
+#import "AUIRoomInteractionLiveManager.h"
 #import "AUILiveRoomLinkMicListPanel.h"
 
 
@@ -35,7 +35,7 @@ AVUIViewControllerInteractivePodGesture
 
 @property (strong, nonatomic) AVBlockButton* exitButton;
 
-@property (strong, nonatomic) AUILiveRoomLiveDisplayLayoutView *liveDisplayView;
+@property (strong, nonatomic) AUIRoomDisplayLayoutView *liveDisplayView;
 
 @property (strong, nonatomic) AUILiveRoomLivingContainerView *livingContainerView;
 @property (strong, nonatomic) AUILiveRoomInfoView *liveInfoView;
@@ -49,8 +49,8 @@ AVUIViewControllerInteractivePodGesture
 @property (strong, nonatomic) AUILiveRoomFinishView *liveFinishView;
 
 
-@property (strong, nonatomic) AUILiveRoomManager *roomManager;
-@property (strong, nonatomic) id<AUILiveRoomLiveManagerAnchorProtocol> liveManager;
+@property (strong, nonatomic) AUIRoomLiveService *liveService;
+@property (strong, nonatomic) id<AUIRoomLiveManagerAnchorProtocol> liveManager;
 
 @property (strong, nonatomic) AUILiveRoomLinkMicListPanel* linkMicPanel;
 
@@ -67,21 +67,21 @@ AVUIViewControllerInteractivePodGesture
         AVBlockButton* button = [[AVBlockButton alloc] initWithFrame:CGRectMake(self.view.av_right - 16 - 24, AVSafeTop + 10, 24, 24)];
         button.layer.cornerRadius = 12;
         button.layer.masksToBounds = YES;
-        [button setImage:AUIInteractionLiveGetCommonImage(@"ic_living_close") forState:UIControlStateNormal];
+        [button setImage:AUIRoomGetCommonImage(@"ic_living_close") forState:UIControlStateNormal];
         [button setBackgroundColor:[UIColor av_colorWithHexString:@"#1C1D22" alpha:0.4] forState:UIControlStateNormal];
         [self.view addSubview:button];
         
         __weak typeof(self) weakSelf = self;
         button.clickBlock = ^(AVBlockButton * _Nonnull sender) {
             NSString *tips = @"还有观众正在路上，确定要结束直播吗？";
-            if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+            if (weakSelf.liveService.liveInfoModel.status == AUIRoomLiveStatusFinished) {
                 tips = @"确定要离开吗？";
             }
             [AVAlertController showWithTitle:tips message:@"" needCancel:YES onCompleted:^(BOOL isCanced) {
                 if (!isCanced) {
                     [weakSelf.liveManager destoryLivePusher];
-                    [weakSelf.roomManager finishLive:nil];
-                    [weakSelf.roomManager leaveRoom:nil];
+                    [weakSelf.liveService finishLive:nil];
+                    [weakSelf.liveService leaveRoom:nil];
                     [weakSelf.navigationController popViewControllerAnimated:YES];
                 }
             }];
@@ -91,9 +91,9 @@ AVUIViewControllerInteractivePodGesture
     return _exitButton;
 }
 
-- (AUILiveRoomLiveDisplayLayoutView *)liveDisplayView {
+- (AUIRoomDisplayLayoutView *)liveDisplayView {
     if (!_liveDisplayView) {
-        _liveDisplayView = [[AUILiveRoomLiveDisplayLayoutView alloc] initWithFrame:self.view.bounds];
+        _liveDisplayView = [[AUIRoomDisplayLayoutView alloc] initWithFrame:self.view.bounds];
         _liveDisplayView.resolution = CGSizeMake(720, 1280);
         [self.view addSubview:_liveDisplayView];
     }
@@ -113,7 +113,7 @@ AVUIViewControllerInteractivePodGesture
         _membersButton = [[AUILiveRoomMemberButton alloc] initWithFrame:CGRectMake(self.livingContainerView.av_right - 48 - 55, AVSafeTop + 10, 55, 24)];
         _membersButton.layer.cornerRadius = 12;
         _membersButton.layer.masksToBounds = YES;
-        [_membersButton updateMemberCount:self.roomManager.pv];
+        [_membersButton updateMemberCount:self.liveService.pv];
         [self.livingContainerView addSubview:_membersButton];
     }
     return _membersButton;
@@ -121,7 +121,7 @@ AVUIViewControllerInteractivePodGesture
 
 - (AUILiveRoomInfoView *)liveInfoView {
     if(!_liveInfoView) {
-        AUILiveRoomInfoView* view = [[AUILiveRoomInfoView alloc] initWithFrame:CGRectMake(16, AVSafeTop + 2, 150, 40) withModel:self.roomManager.liveInfoModel];
+        AUILiveRoomInfoView* view = [[AUILiveRoomInfoView alloc] initWithFrame:CGRectMake(16, AVSafeTop + 2, 150, 40) withModel:self.liveService.liveInfoModel];
         [self.livingContainerView addSubview:view];
         view.layer.cornerRadius = 20;
         view.layer.masksToBounds = YES;
@@ -136,24 +136,24 @@ AVUIViewControllerInteractivePodGesture
         AUILiveRoomNoticeButton* button = [[AUILiveRoomNoticeButton alloc] initWithFrame:CGRectMake(16, AVSafeTop + 52, 0, 0)];
         button.enableEdit = YES;
         [self.livingContainerView addSubview:button];
-        button.noticeContent = self.roomManager.notice;
+        button.noticeContent = self.liveService.notice;
         
         __weak typeof(self) weakSelf = self;
         button.onEditNoticeContentBlock = ^{
             
             AUILIveRoomNoticePanel *panel = [[AUILIveRoomNoticePanel alloc] initWithFrame:CGRectMake(0, weakSelf.livingContainerView.av_height - AUILIveRoomNoticePanel.panelHeight, weakSelf.livingContainerView.av_width, AUILIveRoomNoticePanel.panelHeight)];
-            panel.input = weakSelf.roomManager.notice;
+            panel.input = weakSelf.liveService.notice;
             panel.onInputCompletedBlock = ^(AUILIveRoomNoticePanel *sender, NSString * _Nonnull input) {
-                if ([input isEqualToString:weakSelf.roomManager.notice]) {
+                if ([input isEqualToString:weakSelf.liveService.notice]) {
                     return;
                 }
                 AVProgressHUD *loading = [AVProgressHUD ShowHUDAddedTo:weakSelf.view animated:YES];
-                [weakSelf.roomManager updateNotice:input?:@"" completed:^(BOOL success) {
+                [weakSelf.liveService updateNotice:input?:@"" completed:^(BOOL success) {
                     if (success) {
                         loading.labelText = @"公告已更新";
                         loading.iconType = AVProgressHUDIconTypeSuccess;
                         [loading hideAnimated:YES afterDelay:1];
-                        weakSelf.noticeButton.noticeContent = weakSelf.roomManager.notice;
+                        weakSelf.noticeButton.noticeContent = weakSelf.liveService.notice;
                         [sender hide];
                     }
                     else {
@@ -190,7 +190,7 @@ AVUIViewControllerInteractivePodGesture
 
 - (AUILiveRoomAnchorBottomView *)bottomView {
     if (!_bottomView) {
-        _bottomView = [[AUILiveRoomAnchorBottomView alloc] initWithFrame:CGRectMake(0, self.livingContainerView.av_height - AVSafeBottom - 50, self.livingContainerView.av_width, AVSafeBottom + 50) linkMic:self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic];
+        _bottomView = [[AUILiveRoomAnchorBottomView alloc] initWithFrame:CGRectMake(0, self.livingContainerView.av_height - AVSafeBottom - 50, self.livingContainerView.av_width, AVSafeBottom + 50) linkMic:self.liveService.liveInfoModel.mode == AUIRoomLiveModeLinkMic];
         [self.livingContainerView addSubview:_bottomView];
         
         __weak typeof(self) weakSelf = self;
@@ -204,7 +204,7 @@ AVUIViewControllerInteractivePodGesture
             [weakSelf openLinkMicPanel:YES needJump:YES onApplyTab:NO];
         };
         _bottomView.sendCommentBlock = ^(AUILiveRoomAnchorBottomView * _Nonnull sender, NSString * _Nonnull comment) {
-            [weakSelf.roomManager sendComment:comment completed:nil];
+            [weakSelf.liveService sendComment:comment completed:nil];
         };
     }
     return _bottomView;
@@ -212,7 +212,7 @@ AVUIViewControllerInteractivePodGesture
 
 - (AUILiveRoomAnchorPrestartView *)livePrestartView {
     if (!_livePrestartView) {
-        _livePrestartView = [[AUILiveRoomAnchorPrestartView alloc] initWithFrame:self.view.bounds withModel:self.roomManager.liveInfoModel];
+        _livePrestartView = [[AUILiveRoomAnchorPrestartView alloc] initWithFrame:self.view.bounds withModel:self.liveService.liveInfoModel];
         _livePrestartView.hidden = YES;
         [self.view insertSubview:_livePrestartView aboveSubview:self.livingContainerView];
         
@@ -239,7 +239,7 @@ AVUIViewControllerInteractivePodGesture
     if (!_liveFinishView) {
         _liveFinishView = [[AUILiveRoomFinishView alloc] initWithFrame:self.livingContainerView.bounds];
         _liveFinishView.hidden = YES;
-        _liveFinishView.hiddenReplayerButtons = YES;
+        _liveFinishView.isAnchor = YES;
         [self.livingContainerView insertSubview:_liveFinishView atIndex:0];
         
         __weak typeof(self) weakSelf = self;
@@ -265,44 +265,47 @@ AVUIViewControllerInteractivePodGesture
     NSLog(@"dealloc:AUILiveRoomAnchorViewController");
 }
 
-- (instancetype)initWithManger:(AUILiveRoomManager *)manager {
+- (instancetype)initWithLiveService:(AUIRoomLiveService *)liveService {
     self = [super init];
     if (self) {
-        _roomManager = manager;
+        _liveService = liveService;
         
         __weak typeof(self) weakSelf = self;
-        _roomManager.onReceivedComment = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull content) {
+        _liveService.onReceivedComment = ^(AUIRoomUser * _Nonnull sender, NSString * _Nonnull content) {
             if (content.length > 0) {
                 NSString *senderNick = sender.nickName;
                 NSString *senderId = sender.userId;
                 [weakSelf.liveCommentView insertLiveComment:content commentSenderNick:senderNick commentSenderID:senderId presentedCompulsorily:NO];
             }
         };
-        _roomManager.onReceivedMuteAll = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL isMuteAll) {
+        _liveService.onReceivedMuteAll = ^(AUIRoomUser * _Nonnull sender, BOOL isMuteAll) {
             weakSelf.bottomView.commentTextField.commentState = isMuteAll ?  AUILiveRoomCommentStateMute : AUILiveRoomCommentStateDefault;
         };
-        _roomManager.onReceivedLike = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger likeCount) {
+        _liveService.onReceivedLike = ^(AUIRoomUser * _Nonnull sender, NSInteger likeCount) {
         };
-        _roomManager.onReceivedPV = ^(AUIInteractionLiveUser * _Nonnull sender, NSInteger pv) {
+        _liveService.onReceivedPV = ^(AUIRoomUser * _Nonnull sender, NSInteger pv) {
             [weakSelf.membersButton updateMemberCount:pv];
         };
-        _roomManager.onReceivedApplyLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender) {
+        _liveService.onReceivedApplyLinkMic = ^(AUIRoomUser * _Nonnull sender) {
             [weakSelf receiveApply:sender];
         };
-        _roomManager.onReceivedCancelApplyLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender) {
+        _liveService.onReceivedCancelApplyLinkMic = ^(AUIRoomUser * _Nonnull sender) {
             [weakSelf receiveCancelApply:sender];
         };
-        _roomManager.onReceivedJoinLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, AUIInteractionLiveLinkMicJoinInfoModel * _Nonnull joinInfo) {
+        _liveService.onReceivedJoinLinkMic = ^(AUIRoomUser * _Nonnull sender, AUIRoomLiveLinkMicJoinInfoModel * _Nonnull joinInfo) {
             [weakSelf receivedJoinLinkMic:joinInfo];
         };
-        _roomManager.onReceivedLeaveLinkMic = ^(AUIInteractionLiveUser * _Nonnull sender, NSString * _Nonnull userId) {
+        _liveService.onReceivedLeaveLinkMic = ^(AUIRoomUser * _Nonnull sender, NSString * _Nonnull userId) {
             [weakSelf receivedLeaveLinkMic:userId];
         };
-        _roomManager.onReceivedMicOpened = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL opened) {
+        _liveService.onReceivedMicOpened = ^(AUIRoomUser * _Nonnull sender, BOOL opened) {
             [weakSelf receivedMicOpened:sender opened:opened];
         };
-        _roomManager.onReceivedCameraOpened = ^(AUIInteractionLiveUser * _Nonnull sender, BOOL opened) {
+        _liveService.onReceivedCameraOpened = ^(AUIRoomUser * _Nonnull sender, BOOL opened) {
             [weakSelf receivedCameraOpened:sender opened:opened];
+        };
+        _liveService.onReceivedGift = ^(AUIRoomUser * _Nonnull sender, AUIRoomGiftModel * _Nonnull gift) {
+            // 处理接收到的礼物
         };
     }
     return self;
@@ -313,12 +316,12 @@ AVUIViewControllerInteractivePodGesture
     
     [self setupUI];
         
-    if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
+    if (self.liveService.liveInfoModel.status == AUIRoomLiveStatusNone) {
         [self showPrestartUI];
     }
-    else if (self.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+    else if (self.liveService.liveInfoModel.status == AUIRoomLiveStatusFinished) {
         [self showFinishUI];
-        self.liveFinishView.vodModel = self.roomManager.liveInfoModel.vod_info;
+        self.liveFinishView.vodModel = self.liveService.liveInfoModel.vod_info;
         self.noticeButton.enableEdit = NO;
     }
     else {
@@ -328,26 +331,26 @@ AVUIViewControllerInteractivePodGesture
     [self setupLiveManager];
     
     __weak typeof(self) weakSelf = self;
-    [self.roomManager enterRoom:^(BOOL success) {
+    [self.liveService enterRoom:^(BOOL success) {
         if (!success) {
             [AVAlertController showWithTitle:nil message:@"进入直播间失败，请稍后重试~" needCancel:NO onCompleted:^(BOOL isCanced) {
                 [weakSelf.navigationController popViewControllerAnimated:YES];
             }];
         }
         else {
-            [weakSelf.roomManager queryMuteAll:^(BOOL success) {
-                weakSelf.bottomView.commentTextField.commentState = weakSelf.roomManager.isMuteAll ? AUILiveRoomCommentStateMute : AUILiveRoomCommentStateDefault;
+            [weakSelf.liveService queryMuteAll:^(BOOL success) {
+                weakSelf.bottomView.commentTextField.commentState = weakSelf.liveService.isMuteAll ? AUILiveRoomCommentStateMute : AUILiveRoomCommentStateDefault;
             }];
             
-            [weakSelf.membersButton updateMemberCount:weakSelf.roomManager.pv];
-            if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusNone) {
+            [weakSelf.membersButton updateMemberCount:weakSelf.liveService.pv];
+            if (weakSelf.liveService.liveInfoModel.status == AUIRoomLiveStatusNone) {
                 [weakSelf.liveManager prepareLivePusher];
             }
-            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusLiving) {
+            else if (weakSelf.liveService.liveInfoModel.status == AUIRoomLiveStatusLiving) {
                 [weakSelf.liveManager prepareLivePusher];
                 [weakSelf.liveManager startLivePusher];
             }
-            else if (weakSelf.roomManager.liveInfoModel.status == AUIInteractionLiveStatusFinished) {
+            else if (weakSelf.liveService.liveInfoModel.status == AUIRoomLiveStatusFinished) {
             }
             else {
                 // 状态出错
@@ -410,7 +413,7 @@ AVUIViewControllerInteractivePodGesture
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeAudioOnly selected:self.liveManager.livePusher.isPause];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeCamera selected:self.liveManager.livePusher.isBackCamera];
     [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeMirror selected:self.liveManager.livePusher.isMirror];
-    [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeBan selected:[self.roomManager isMuteAll]];
+    [morePanel updateClickedSelected:AUILiveRoomMorePanelActionTypeBan selected:[self.liveService isMuteAll]];
     __weak typeof(self) weakSelf = self;
     morePanel.onClickedAction = ^BOOL(AUILiveRoomMorePanel *sender, AUILiveRoomMorePanelActionType type, BOOL selected) {
         BOOL ret = selected;
@@ -450,11 +453,11 @@ AVUIViewControllerInteractivePodGesture
                         loading.iconType = AVProgressHUDIconTypeWarn;
                         [loading hideAnimated:YES afterDelay:3];
                     }
-                    [sender updateClickedSelected:AUILiveRoomMorePanelActionTypeBan selected:[weakSelf.roomManager isMuteAll]];
+                    [sender updateClickedSelected:AUILiveRoomMorePanelActionTypeBan selected:[weakSelf.liveService isMuteAll]];
                 };
                 if (selected) {
                     AVProgressHUD *loading = [AVProgressHUD ShowHUDAddedTo:weakSelf.view animated:YES];
-                    [weakSelf.roomManager cancelMuteAll:^(BOOL result) {
+                    [weakSelf.liveService cancelMuteAll:^(BOOL result) {
                         completedBlock(result, @"已取消全员禁言", @"取消全员禁言失败，请稍后再试", loading);
                     }];
                 }
@@ -462,7 +465,7 @@ AVUIViewControllerInteractivePodGesture
                     [AVAlertController showWithTitle:nil message:@"是否开启全员禁言？" needCancel:YES onCompleted:^(BOOL isCanced) {
                         if (!isCanced) {
                             AVProgressHUD *loading = [AVProgressHUD ShowHUDAddedTo:weakSelf.view animated:YES];
-                            [weakSelf.roomManager muteAll:^(BOOL result) {
+                            [weakSelf.liveService muteAll:^(BOOL result) {
                                 completedBlock(result, @"已全员禁言", @"全员禁言失败，请稍后再试", loading);
                             }];
                         }
@@ -499,7 +502,7 @@ AVUIViewControllerInteractivePodGesture
 - (void)startLive {
     __weak typeof(self) weakSelf = self;
     [self.liveManager startLivePusher];
-    [self.roomManager startLive:^(BOOL success) {
+    [self.liveService startLive:^(BOOL success) {
         NSLog(@"开始直播：%@", success ? @"成功" : @"失败");
         if (success) {
             [weakSelf showLivingUI];
@@ -518,11 +521,11 @@ AVUIViewControllerInteractivePodGesture
     
     __weak typeof(self) weakSelf = self;
     
-    if (self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic) {
-        self.liveManager = [[AUILiveRoomLinkMicManagerAnchor alloc] initWithRoomManager:self.roomManager displayView:self.liveDisplayView];
+    if (self.liveService.liveInfoModel.mode == AUIRoomLiveModeLinkMic) {
+        self.liveManager = [[AUIRoomInteractionLiveManagerAnchor alloc] initWithLiveService:self.liveService displayView:self.liveDisplayView];
     }
     else {
-        self.liveManager = [[AUILiveRoomBaseLiveManagerAnchor alloc] initWithRoomManager:self.roomManager displayView:self.liveDisplayView];
+        self.liveManager = [[AUIRoomBaseLiveManagerAnchor alloc] initWithLiveService:self.liveService displayView:self.liveDisplayView];
     }
     
     self.liveManager.onStartedBlock = ^{
@@ -554,12 +557,12 @@ AVUIViewControllerInteractivePodGesture
     };
     self.liveManager.roomVC = self;
     [self.liveManager setupLivePusher];
-    self.liveManager.livePusher.beautyController = [[AUILiveRoomBeautyController alloc] initWithPresentView:self.view contextMode:self.roomManager.liveInfoModel.mode == AUIInteractionLiveModeLinkMic];
+    self.liveManager.livePusher.beautyController = [[AUIRoomBeautyController alloc] initWithPresentView:self.view contextMode:self.liveService.liveInfoModel.mode == AUIRoomLiveModeLinkMic];
     
     //
-    AUILiveRoomLinkMicManagerAnchor *linkMicManager = [self linkMicManager];
+    AUIRoomInteractionLiveManagerAnchor *linkMicManager = [self linkMicManager];
     if (linkMicManager) {
-        linkMicManager.applyListChangedBlock = ^(AUILiveRoomLinkMicManagerAnchor * _Nonnull sender) {
+        linkMicManager.applyListChangedBlock = ^(AUIRoomInteractionLiveManagerAnchor * _Nonnull sender) {
             [weakSelf.bottomView updateLinkMicNumber:sender.currentApplyList.count];
         };
         [linkMicManager reportLinkMicJoinList:nil];
@@ -568,14 +571,14 @@ AVUIViewControllerInteractivePodGesture
 
 #pragma mark - link mic
 
-- (AUILiveRoomLinkMicManagerAnchor *)linkMicManager {
-    if ([self.liveManager isKindOfClass:AUILiveRoomLinkMicManagerAnchor.class]) {
+- (AUIRoomInteractionLiveManagerAnchor *)linkMicManager {
+    if ([self.liveManager isKindOfClass:AUIRoomInteractionLiveManagerAnchor.class]) {
         return self.liveManager;
     }
     return nil;
 }
 
-- (void)receiveApply:(AUIInteractionLiveUser *)sender {
+- (void)receiveApply:(AUIRoomUser *)sender {
     __weak typeof(self) weakSelf = self;
     if (![[self linkMicManager] checkCanLinkMic]) {
         // 超过最大连麦数，直接拒绝
@@ -592,7 +595,7 @@ AVUIViewControllerInteractivePodGesture
     }];
 }
 
-- (void)receiveCancelApply:(AUIInteractionLiveUser *)sender {
+- (void)receiveCancelApply:(AUIRoomUser *)sender {
     __weak typeof(self) weakSelf = self;
     [[self linkMicManager] receiveCancelApplyLinkMic:sender completed:^(BOOL success) {
         if (success) {
@@ -601,7 +604,7 @@ AVUIViewControllerInteractivePodGesture
     }];
 }
 
-- (void)receivedJoinLinkMic:(AUIInteractionLiveLinkMicJoinInfoModel *)joinInfo {
+- (void)receivedJoinLinkMic:(AUIRoomLiveLinkMicJoinInfoModel *)joinInfo {
     __weak typeof(self) weakSelf = self;
     [[self linkMicManager] receivedJoinLinkMic:joinInfo completed:^(BOOL success) {
         if (success) {
@@ -619,7 +622,7 @@ AVUIViewControllerInteractivePodGesture
     }];
 }
 
-- (void)receivedMicOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened {
+- (void)receivedMicOpened:(AUIRoomUser *)sender opened:(BOOL)opened {
     __weak typeof(self) weakSelf = self;
     [[self linkMicManager] receivedMicOpened:sender opened:opened completed:^(BOOL success) {
         if (success) {
@@ -628,7 +631,7 @@ AVUIViewControllerInteractivePodGesture
     }];
 }
 
-- (void)receivedCameraOpened:(AUIInteractionLiveUser *)sender opened:(BOOL)opened {
+- (void)receivedCameraOpened:(AUIRoomUser *)sender opened:(BOOL)opened {
     __weak typeof(self) weakSelf = self;
     [[self linkMicManager] receivedCameraOpened:sender opened:opened completed:^(BOOL success) {
         if (success) {

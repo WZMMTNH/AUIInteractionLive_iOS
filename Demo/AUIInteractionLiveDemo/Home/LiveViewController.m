@@ -6,10 +6,11 @@
 //
 
 #import "LiveViewController.h"
-#import "AUIInteractionLiveMacro.h"
 #import "LoginViewController.h"
+#import "AUIRoomMacro.h"
 #import "AUIInteractionLiveListViewController.h"
-#import "AUIInteractionLiveActionManager.h"
+#import "AUILiveRoomActionManager.h"
+#import <objc/message.h>
 
 @interface LiveViewController ()
 
@@ -20,14 +21,27 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
-    self.headerView.hidden = YES;
+    self.hiddenBackButton = YES;
+    self.titleView.text = @"App主界面";
+    
+    if ([self.class enableDebug]) {
+        [self.class loadDebugConfig];
+        self.hiddenMenuButton = NO;
+        [self.menuButton setTitle:@"DEBUG" forState:UIControlStateNormal];
+        [self.menuButton setImage:nil forState:UIControlStateNormal];
+        [self.menuButton sizeToFit];
+        self.menuButton.av_right = self.menuButton.superview.av_width - 16;
+    }
+    else {
+        self.hiddenMenuButton = YES;
+    }
     
     AVBlockButton *logout = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, self.view.av_height - AVSafeBottom - 44, self.view.av_width - 24 * 2, 44)];
     logout.layer.cornerRadius = 22;
     logout.titleLabel.font = AVGetRegularFont(16);
     [logout setTitle:@"登出" forState:UIControlStateNormal];
     [logout setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
-    [logout setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
+    [logout setBackgroundColor:AUIRoomColourfulFillStrong forState:UIControlStateNormal];
     [logout addTarget:self action:@selector(onLogoutClicked:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:logout];
     
@@ -36,27 +50,26 @@
     liveList.titleLabel.font = AVGetRegularFont(16);
     [liveList setTitle:@"直播间列表" forState:UIControlStateNormal];
     [liveList setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
-    [liveList setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
+    [liveList setBackgroundColor:AUIRoomColourfulFillStrong forState:UIControlStateNormal];
     [liveList addTarget:self action:@selector(onLiveListClicked:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:liveList];
     
-    // 暂不开放切换主题模式
-//    AVBlockButton *theme = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, liveList.av_top - 44 - 24, self.view.av_width - 24 * 2, 44)];
-//    theme.layer.cornerRadius = 22;
-//    theme.titleLabel.font = AVGetRegularFont(16);
-//    [theme setTitle:@"切换主题" forState:UIControlStateNormal];
-//    [theme setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
-//    [theme setBackgroundColor:AUIInteractionLiveColourfulFillStrong forState:UIControlStateNormal];
-//    [theme addTarget:self action:@selector(changeTheme:) forControlEvents:UIControlEventTouchUpInside];
-//    [self.view addSubview:theme];
+    AVBlockButton *theme = [[AVBlockButton alloc] initWithFrame:CGRectMake(24, liveList.av_top - 44 - 24, self.view.av_width - 24 * 2, 44)];
+    theme.layer.cornerRadius = 22;
+    theme.titleLabel.font = AVGetRegularFont(16);
+    [theme setTitle:@"切换主题" forState:UIControlStateNormal];
+    [theme setTitleColor:[UIColor av_colorWithHexString:@"#FCFCFD"] forState:UIControlStateNormal];
+    [theme setBackgroundColor:AUIRoomColourfulFillStrong forState:UIControlStateNormal];
+    [theme addTarget:self action:@selector(changeTheme:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:theme];
     
-    AUIInteractionLiveActionManager.defaultManager.followAnchorAction = ^(AUIInteractionLiveUser * _Nonnull anchor, BOOL isFollowed, UIViewController * _Nonnull roomVC, onActionCompleted  _Nonnull completed) {
+    AUILiveRoomActionManager.defaultManager.followAnchorAction = ^(AUIRoomUser * _Nonnull anchor, BOOL isFollowed, UIViewController * _Nonnull roomVC, onActionCompleted  _Nonnull completed) {
         // 这里调用关注接口，然后返回结果
         if (completed) {
             completed(YES);
         }
     };
-    AUIInteractionLiveActionManager.defaultManager.openShare = ^(AUIInteractionLiveInfoModel * _Nonnull liveInfo, UIViewController * _Nonnull roomVC, onActionCompleted  _Nullable completed) {
+    AUILiveRoomActionManager.defaultManager.openShare = ^(AUIRoomLiveInfoModel * _Nonnull liveInfo, UIViewController * _Nonnull roomVC, onActionCompleted  _Nullable completed) {
         // 这里打开分享面板
         AVBaseControllPanel *panel = [[AVBaseControllPanel alloc] initWithFrame:CGRectMake(0, 0, roomVC.view.bounds.size.width, 0)];
         panel.titleView.text = @"分享面板";
@@ -119,5 +132,27 @@
     }];
 }
 
+- (void)onMenuClicked:(UIButton *)sender {
+    [self.class openDebugVC:self];
+}
+
+#pragma - Debug
+
++ (BOOL)enableDebug {
+#ifdef NDEBUG
+    return NO;
+#else
+    return NSClassFromString(@"DebugViewController") != nil;
+#endif
+}
+
++ (void)loadDebugConfig {
+    ((void (*)(id, SEL))objc_msgSend)((id)NSClassFromString(@"DebugViewController"), @selector(loadConfig));
+}
+
++ (void)openDebugVC:(UIViewController *)current {
+    id debugVC = ((id (*)(id, SEL))objc_msgSend)((id)NSClassFromString(@"DebugViewController"), @selector(new));
+    [current.navigationController pushViewController:(UIViewController *)debugVC animated:YES];
+}
 
 @end

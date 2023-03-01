@@ -6,13 +6,13 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "AUILiveRoomManager.h"
+#import "AUIRoomLiveService.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface AUILiveRoomAudienceViewController : UIViewController
 
-- (instancetype)initWithManger:(AUILiveRoomManager *)manager;
+- (instancetype)initWithLiveService:(AUIRoomLiveService *)liveService;
 
 @end
 

@@ -59,16 +59,16 @@ platform :ios, '10.0'
 target '你的App target' do
     # 根据自己的业务场景，集成合适的音视频终端SDK
     # 如果你的APP中还需要频短视频编辑功能，可以使用音视频终端全功能SDK（AliVCSDK_Premium），可以把本文件中的所有AliVCSDK_PremiumLive替换为AliVCSDK_Premium
-    pod 'AliVCSDK_PremiumLive', '~> 1.6.0'
+    pod 'AliVCSDK_PremiumLive', '~> 1.7.0'
     
     # 互动SDK
     pod 'AlivcInteraction', '~> 1.0.0'
 
     # 基础UI组件
-    pod 'AUIFoundation/All', '~> 1.6.0'
+    pod 'AUIFoundation/All', '~> 1.7.0'
     
     # 美颜UI组件，如果终端SDK使用的是AliVCSDK_Premium，需要AliVCSDK_PremiumLive替换为AliVCSDK_Premium
-    pod 'AUIQueenCom/AliVCSDK_PremiumLive', '~> 1.6.0'
+    pod 'AUIQueenCom/AliVCSDK_PremiumLive', '~> 1.7.0'
     
     # 互动直播UI组件，如果终端SDK使用的是AliVCSDK_Premium，需要AliVCSDK_PremiumLive替换为AliVCSDK_Premium
     pod 'AUIInteractionLive/AliVCSDK_PremiumLive',  :path => "./AUIInteractionLive/"
@@ -133,10 +133,10 @@ static NSString * const kLiveServiceDomainString =  @"你的LiveService域名";
 // 在登录后进行，进行赋值
 // 如果本次启动用户不需要重新登录（用户token未过期），可以在加载登录用户后进行赋值
 
-AUIInteractionAccountManager.me.userId = @"当前登录用户id";
-AUIInteractionAccountManager.me.nickName = @"当前登录用户昵称";
-AUIInteractionAccountManager.me.avatar = @"当前登录用户头像";
-AUIInteractionAccountManager.me.token = @"当前登录用户token";   // 用于服务端用户有效性验证
+AUIRoomAccount.me.userId = @"当前登录用户id";
+AUIRoomAccount.me.nickName = @"当前登录用户昵称";
+AUIRoomAccount.me.avatar = @"当前登录用户头像";
+AUIRoomAccount.me.token = @"当前登录用户token";   // 用于服务端用户有效性验证
 ```
 
 ### 运行
