@@ -59,16 +59,16 @@ platform :ios, '10.0'
 target '你的App target' do
     # 根据自己的业务场景，集成合适的音视频终端SDK
     # 如果你的APP中还需要频短视频编辑功能，可以使用音视频终端全功能SDK（AliVCSDK_Premium），可以把本文件中的所有AliVCSDK_PremiumLive替换为AliVCSDK_Premium
-    pod 'AliVCSDK_PremiumLive', '~> 1.7.0'
+    pod 'AliVCSDK_PremiumLive', '~> 1.8.0'
     
     # 互动SDK
     pod 'AlivcInteraction', '~> 1.0.0'
 
     # 基础UI组件
-    pod 'AUIFoundation/All', '~> 1.7.0'
+    pod 'AUIFoundation/All', '~> 1.8.0'
     
     # 美颜UI组件，如果终端SDK使用的是AliVCSDK_Premium，需要AliVCSDK_PremiumLive替换为AliVCSDK_Premium
-    pod 'AUIQueenCom/AliVCSDK_PremiumLive', '~> 1.7.0'
+    pod 'AUIQueenCom/AliVCSDK_PremiumLive', '~> 1.8.0'
     
     # 互动直播UI组件，如果终端SDK使用的是AliVCSDK_Premium，需要AliVCSDK_PremiumLive替换为AliVCSDK_Premium
     pod 'AUIInteractionLive/AliVCSDK_PremiumLive',  :path => "./AUIInteractionLive/"
@@ -88,9 +88,9 @@ end
 
 
 ### 初始化
-- LiveService部署后，修改LiveService域名地址，找到AUIInteractionLiveService.m文件，修改kLiveServiceDomainString的值，如下：
+- LiveService部署后，修改LiveService域名地址，找到AUIRoomAppServer.m文件，修改kLiveServiceDomainString的值，如下：
 ```ObjC
-// AUIInteractionLiveService.m
+// AUIRoomAppServer.m
 
 // 在部署LiveService部署后，修改LiveService域名地址
 static NSString * const kLiveServiceDomainString =  @"你的LiveService域名";

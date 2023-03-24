@@ -83,7 +83,7 @@
                 [weakSelf.navigationController popViewControllerAnimated:YES];
             };
             
-            if ([weakSelf linkMicManager] && [weakSelf linkMicManager].isJoinedLinkMic) {
+            if (weakSelf.liveService.liveInfoModel.status == AUIRoomLiveStatusLiving && [weakSelf linkMicManager] && [weakSelf linkMicManager].isJoinedLinkMic) {
                 [AVAlertController showWithTitle:@"是否结束与主播连麦，并退出直播间？" message:@"" needCancel:YES onCompleted:^(BOOL isCanced) {
                     if (!isCanced) {
                         destroyBlock();

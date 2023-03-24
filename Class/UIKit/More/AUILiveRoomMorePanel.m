@@ -144,8 +144,8 @@
         [self.buttonDict setObject:cameraButton forKey:@(AUILiveRoomMorePanelActionTypeCamera)];
         
         AUILiveRoomMorePanelButton *mirrorButton = [[AUILiveRoomMorePanelButton alloc] initWithFrame:CGRectMake(self.buttonDict.count % 4 * width + 16, self.buttonDict.count / 4 * (height + 12) + 8, width, height)];
-        mirrorButton.title = @"关闭镜像";
-        mirrorButton.selectedTitle = @"开启镜像";
+        mirrorButton.title = @"开启镜像";
+        mirrorButton.selectedTitle = @"关闭镜像";
         mirrorButton.iconName = @"ic_living_more_mirror";
         mirrorButton.selectedIconName = @"ic_living_more_mirror_selected";
         mirrorButton.selected = NO;

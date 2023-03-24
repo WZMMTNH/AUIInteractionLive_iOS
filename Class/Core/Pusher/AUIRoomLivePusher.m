@@ -178,6 +178,7 @@ static BOOL g_canRtsPush = YES;
     int ret = [_pushEngine switchCamera];
     if (ret == 0) {
         _isBackCamera = !_isBackCamera;
+        [self mirror:_isMirror]; // 重置镜像
     }
 }
 
@@ -186,14 +187,23 @@ static BOOL g_canRtsPush = YES;
         return;
     }
     if (self.liveInfoModel.mode == AUIRoomLiveModeLinkMic) {
-        [_pushEngine setPreviewMirror:!mirror];
-        [_pushEngine setPushMirror:mirror];
+        // 互动模式
+        if (_isBackCamera) {
+            // 后置摄像头
+            [_pushEngine setPreviewMirror:mirror];
+            [_pushEngine setPushMirror:mirror];
+        }
+        else {
+            // 前置摄像头
+            [_pushEngine setPreviewMirror:!mirror];
+            [_pushEngine setPushMirror:mirror];
+        }
     }
     else {
+        // 普通模式
         [_pushEngine setPreviewMirror:mirror];
         [_pushEngine setPushMirror:mirror];
     }
-    
     _isMirror = mirror;
 }
 
