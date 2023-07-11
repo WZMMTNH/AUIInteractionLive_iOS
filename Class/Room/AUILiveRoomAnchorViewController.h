@@ -12,6 +12,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AUILiveRoomAnchorViewController : UIViewController
 
+@property (nonatomic , strong) NSString *chat_id;
+
 - (instancetype)initWithLiveService:(AUIRoomLiveService *)liveService;
 
 @end
